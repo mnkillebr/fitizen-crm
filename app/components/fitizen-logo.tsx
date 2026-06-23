@@ -28,18 +28,16 @@ export function FitizenLogo({
         )}
         aria-hidden
       >
-        <svg viewBox="0 0 24 24" fill="none" className="size-[55%]">
+        <svg width="481" height="480" viewBox="0 0 481 480" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path
-            d="M6 8.5C6 7.12 7.12 6 8.5 6h7C16.88 6 18 7.12 18 8.5v7c0 1.38-1.12 2.5-2.5 2.5h-7C7.12 18 6 16.88 6 15.5v-7Z"
-            stroke="currentColor"
-            strokeWidth="1.75"
-            strokeLinejoin="round"
+            d="M124.5 365.5C70.5 332 35.8786 226.216 94.422 145.638C151.231 67.4462 260.671 44.6129 338.862 101.422C417.054 158.232 437.5 252.5 387 332C336.5 411.5 259 408.5 218 408.5"
+            stroke="#fff"
+            strokeWidth="18"
           />
           <path
-            d="M9 12h6M12 9v6"
-            stroke="currentColor"
-            strokeWidth="1.75"
-            strokeLinecap="round"
+            d="M155 302V387L193.5 434.5V342.5M193.5 245V189.5H343.5L304.5 151.5H155V274H249L292 312H184"
+            stroke="#fff"
+            strokeWidth="18"
           />
         </svg>
       </div>
