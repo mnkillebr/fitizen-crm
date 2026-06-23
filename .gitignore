@@ -11,3 +11,6 @@ build
 
 # Cursor
 .cursor
+
+# test coverage
+coverage/
