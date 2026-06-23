@@ -119,7 +119,7 @@ export default function Home() {
               </p>
               <div className="mt-10 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
                 <Button size="lg" className="h-10 px-5 text-sm" asChild>
-                  <Link to="/coach/sign-in">
+                  <Link to="/sign-in?role=coach">
                     Coach sign in
                     <ArrowRightIcon data-icon="inline-end" />
                   </Link>
@@ -130,7 +130,7 @@ export default function Home() {
                   className="h-10 px-5 text-sm"
                   asChild
                 >
-                  <Link to="/member/sign-in">
+                  <Link to="/sign-in?role=member">
                     Member sign in
                     <SignInIcon data-icon="inline-end" />
                   </Link>
@@ -203,7 +203,7 @@ export default function Home() {
                 </CardHeader>
                 <CardContent>
                   <Button className="w-full" size="lg" asChild>
-                    <Link to="/coach/sign-in">
+                    <Link to="/sign-in?role=coach">
                       Sign in as coach
                       <ArrowRightIcon data-icon="inline-end" />
                     </Link>
@@ -235,7 +235,7 @@ export default function Home() {
                     variant="outline"
                     asChild
                   >
-                    <Link to="/member/sign-in">
+                    <Link to="/sign-in?role=member">
                       Sign in as member
                       <SignInIcon data-icon="inline-end" />
                     </Link>
