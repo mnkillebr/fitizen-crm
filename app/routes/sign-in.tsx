@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link, useSearchParams } from "react-router"
+import { Link, redirect, useSearchParams, useSubmit } from "react-router"
 
 import type { Route } from "./+types/sign-in"
 import { FitizenLogo } from "~/components/fitizen-logo"
@@ -17,12 +17,32 @@ import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
 import { Separator } from "~/components/ui/separator"
 import {
+  createGoogleOAuthState,
+  getGoogleAuthorizationUrl,
+} from "~/lib/google-oauth.server"
+import {
   emailSignInSchema,
+  googleSignInErrorMessages,
+  parseGoogleSignInError,
   parseSignInRole,
   signInRoleLabels,
   type SignInRole,
 } from "~/lib/sign-in"
 import { cn } from "~/lib/utils"
+
+export async function action({ request }: Route.ActionArgs) {
+  const formData = await request.formData()
+  const intent = formData.get("intent")
+
+  if (intent === "google") {
+    const role = parseSignInRole(formData.get("role")?.toString() ?? null)
+    const state = createGoogleOAuthState(role)
+
+    return redirect(getGoogleAuthorizationUrl(state))
+  }
+
+  return null
+}
 
 export function meta({ location }: Route.MetaArgs) {
   const role = parseSignInRole(new URLSearchParams(location.search).get("role"))
@@ -43,8 +63,10 @@ const roleDescriptions: Record<SignInRole, string> = {
 }
 
 export default function SignIn() {
+  const submit = useSubmit()
   const [searchParams] = useSearchParams()
   const role = parseSignInRole(searchParams.get("role"))
+  const googleSignInError = parseGoogleSignInError(searchParams.get("error"))
 
   const [email, setEmail] = useState("")
   const [fieldError, setFieldError] = useState<string | null>(null)
@@ -64,7 +86,10 @@ export default function SignIn() {
   }
 
   function handleGoogleSignIn() {
-    // Auth action will be wired up in a later task.
+    const formData = new FormData()
+    formData.set("intent", "google")
+    formData.set("role", role)
+    void submit(formData, { method: "post" })
   }
 
   return (
@@ -90,6 +115,12 @@ export default function SignIn() {
           </CardHeader>
 
           <CardContent className="space-y-6">
+            {googleSignInError ? (
+              <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {googleSignInErrorMessages[googleSignInError]}
+              </p>
+            ) : null}
+
             <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted/50 p-1">
               {(["coach", "member"] as const).map((option) => (
                 <Link
