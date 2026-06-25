@@ -5,6 +5,7 @@ import {
   exchangeGoogleAuthCode,
   verifyGoogleOAuthState,
 } from "~/lib/google-oauth.server"
+import { getUserByProfileId } from "../../models/user.server"
 
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url)
@@ -30,6 +31,9 @@ export async function loader({ request }: Route.LoaderArgs) {
     const authResult = await exchangeGoogleAuthCode(code, role)
 
     // Session cookies will be created in a follow-up task.
+    console.log("authResult", authResult)
+    const user = await getUserByProfileId(authResult.profile.email, authResult.profile.id)
+    console.log("user", user)
     void authResult
 
     return redirect("/")
