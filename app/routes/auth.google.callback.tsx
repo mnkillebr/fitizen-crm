@@ -6,6 +6,7 @@ import {
   verifyGoogleOAuthState,
 } from "~/lib/google-oauth.server"
 import { getUserByProfileId } from "../../models/user.server"
+import { commitSession, getSession } from "~/lib/sessions"
 
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url)
@@ -29,14 +30,22 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   try {
     const authResult = await exchangeGoogleAuthCode(code, role)
+    const cookieHeader = request.headers.get("cookie");
+    const session = await getSession(cookieHeader);
+    const userData = await getUserByProfileId(authResult.profile.email, authResult.profile.id)
+    const existingUser = userData[0];
 
-    // Session cookies will be created in a follow-up task.
-    console.log("authResult", authResult)
-    const user = await getUserByProfileId(authResult.profile.email, authResult.profile.id)
-    console.log("user", user)
-    void authResult
+    if (existingUser) {
+      session.set("userId", existingUser.id);
+      session.set("role", existingUser.role);
+    }
+    void authResult, userData
 
-    return redirect("/")
+    return redirect("/", {
+      headers: {
+        "Set-Cookie": await commitSession(session),
+      }
+    })
   } catch (error) {
     if (import.meta.env.DEV) {
       console.error("Google OAuth callback failed:", error)
