@@ -1,4 +1,4 @@
-import { Monitor, Moon, Sun } from "@phosphor-icons/react"
+import { MonitorIcon, MoonIcon, SunIcon } from "@phosphor-icons/react"
 
 import { Button } from "~/components/ui/button"
 import { useTheme } from "~/hooks/use-theme"
@@ -7,19 +7,19 @@ import { cn } from "~/lib/utils"
 
 const themeConfig: Record<
   Theme,
-  { label: string; Icon: typeof Sun }
+  { label: string; Icon: typeof SunIcon }
 > = {
   auto: {
     label: "System theme",
-    Icon: Monitor,
+    Icon: MonitorIcon,
   },
   light: {
     label: "Light theme",
-    Icon: Sun,
+    Icon: SunIcon,
   },
   dark: {
     label: "Dark theme",
-    Icon: Moon,
+    Icon: MoonIcon,
   },
 }
 

@@ -10,6 +10,7 @@ import {
 } from "@phosphor-icons/react"
 import { Link } from "react-router"
 
+import { DarkModeToggle } from "~/components/dark-mode-toggle"
 import { FitizenLogo } from "~/components/fitizen-logo"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
@@ -81,13 +82,16 @@ export default function Home() {
               Sign in
             </a>
           </nav>
-          <div className="flex items-center gap-2 pr-10 sm:pr-12">
+          <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" asChild>
               <a href="#sign-in">Sign in</a>
             </Button>
             <Button size="sm" asChild>
               <a href="#sign-in">Get started</a>
             </Button>
+            <div className="pointer-events-auto">
+              <DarkModeToggle />
+            </div>
           </div>
         </div>
       </header>

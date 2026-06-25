@@ -8,6 +8,7 @@ import { Button } from "~/components/ui/button"
 import { requireUser, type SessionUser } from "~/lib/auth.server"
 import { signInRoleLabels } from "~/lib/sign-in"
 import { cn } from "~/lib/utils"
+import { DarkModeToggle } from "~/components/dark-mode-toggle"
 
 const coachNavItems = [
   { label: "Overview", to: "/dashboard/coach" },
@@ -66,7 +67,7 @@ export default function DashboardLayout() {
             </div>
 
             <Badge variant="secondary">{signInRoleLabels[user.role]}</Badge>
-
+            <DarkModeToggle />
             <Form method="post" action="/logout">
               <Button type="submit" variant="outline" size="sm">
                 <SignOutIcon />
