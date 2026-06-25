@@ -30,21 +30,24 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   try {
     const authResult = await exchangeGoogleAuthCode(code, role)
-    const cookieHeader = request.headers.get("cookie");
-    const session = await getSession(cookieHeader);
-    const userData = await getUserByProfileId(authResult.profile.email, authResult.profile.id)
-    const existingUser = userData[0];
+    const userData = await getUserByProfileId(
+      authResult.profile.email,
+      authResult.profile.id
+    )
+    const existingUser = userData[0]
 
-    if (existingUser) {
-      session.set("userId", existingUser.id);
-      session.set("role", existingUser.role);
+    if (!existingUser?.id) {
+      return redirect(`/sign-in?role=${role}&error=account_not_found`)
     }
-    void authResult, userData
 
-    return redirect("/", {
+    const session = await getSession(request.headers.get("cookie"))
+    session.set("userId", existingUser.id)
+    session.set("role", existingUser.role)
+
+    return redirect("/dashboard", {
       headers: {
         "Set-Cookie": await commitSession(session),
-      }
+      },
     })
   } catch (error) {
     if (import.meta.env.DEV) {

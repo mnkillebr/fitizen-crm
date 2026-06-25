@@ -30,6 +30,8 @@ export const googleSignInErrorMessages = {
   google_invalid: "Google sign in failed. Please try again.",
   google_invalid_state: "Your Google sign in session expired. Please try again.",
   google_failed: "We could not complete Google sign in. Please try again.",
+  account_not_found:
+    "No Fitizen account matches this Google sign in. Contact your coach or administrator.",
 } as const
 
 export type GoogleSignInErrorCode = keyof typeof googleSignInErrorMessages
