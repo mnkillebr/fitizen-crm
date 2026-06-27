@@ -5,7 +5,7 @@ import {
   exchangeGoogleAuthCode,
   verifyGoogleOAuthState,
 } from "~/lib/google-oauth.server"
-import { getUserByProfileId } from "../../models/user.server"
+import { appendGoogleProfileToUser, getUserByEmail, getUserWithEmailAndProfileId } from "../../models/user.server"
 import { commitSession, getSession } from "~/lib/sessions"
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -30,12 +30,19 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   try {
     const authResult = await exchangeGoogleAuthCode(code, role)
-    const userData = await getUserByProfileId(
-      authResult.profile.email,
-      authResult.profile.id
-    )
+    // console.log("authResult", authResult)
+    const userData = await getUserWithEmailAndProfileId(authResult.profile.email, authResult.profile.id)
     const existingUser = userData[0]
-
+    // console.log("existingUser", existingUser)
+    // let incomingProfile = authResult.profile
+    // const { id, ...restProfile } = incomingProfile
+    // let newGoogleProfile = {
+    //   ...restProfile,
+    //   userId: existingUser?.id,
+    //   profileId: id,
+    // }
+    // const googleProfileData = await appendGoogleProfileToUser(newGoogleProfile)
+    // console.log("googleProfileData", googleProfileData)
     if (!existingUser?.id) {
       return redirect(`/sign-in?role=${role}&error=account_not_found`)
     }
