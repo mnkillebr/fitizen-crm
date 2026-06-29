@@ -10,7 +10,11 @@
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "seed:admin": "tsx scripts/seed-admin.ts",
+    "invite:coach": "tsx scripts/create-coach-invite.ts"
   },
   "dependencies": {
     "@fontsource-variable/figtree": "^5.2.10",
@@ -18,6 +22,7 @@
     "@phosphor-icons/react": "^2.1.10",
     "@react-router/node": "7.15.1",
     "@react-router/serve": "7.15.1",
+    "@tanstack/react-table": "^8.21.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
