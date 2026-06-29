@@ -1,6 +1,6 @@
 import type { GoogleUserProfile } from "~/lib/google-oauth.server";
 import db from "../db";
-import { User, GoogleProfile } from "../db/schema";
+import { User, GoogleProfile, CoachMember } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 
 export function getUserByEmail(email: string) {
@@ -51,6 +51,10 @@ export async function createUserWithGoogleProfile(user: typeof User.$inferInsert
 export function appendGoogleProfileToUser(googleProfileWithUserId: GoogleProfileInsert) {
   // Create the google profile with associated user id
   return createGoogleProfile(googleProfileWithUserId);
+}
+
+export function linkMemberToCoach(coachId: string, memberId: string) {
+  return db.insert(CoachMember).values({ coachId, memberId }).returning();
 }
 
 export function getUserWithEmailAndProfileId(email: string, profileId: string) {
