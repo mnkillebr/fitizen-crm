@@ -9,7 +9,6 @@ function expectHomePage() {
 }
 
 function expectSignInPage(role: "coach" | "member") {
-  expect(screen.getByLabelText("Email")).toBeInTheDocument()
   expect(screen.getByText(`${role === "coach" ? "Coach" : "Member"} portal`)).toBeInTheDocument()
 }
 
@@ -27,6 +26,7 @@ describe("Home", () => {
 
       await user.click(screen.getByRole("link", { name }))
 
+      await screen.findByText(`${role === "coach" ? "Coach" : "Member"} portal`)
       expectSignInPage(role)
     })
   })

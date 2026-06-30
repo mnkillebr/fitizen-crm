@@ -14,7 +14,7 @@ describe("SignIn", () => {
 
     render(<TestApp initialEntry="/sign-in?role=coach" />)
 
-    expect(screen.getByLabelText("Email")).toBeInTheDocument()
+    expect(await screen.findByLabelText("Email")).toBeInTheDocument()
 
     await user.click(screen.getByRole("link", { name: "Back to home" }))
 
@@ -26,7 +26,7 @@ describe("SignIn", () => {
 
     render(<TestApp initialEntry="/sign-in?role=member" />)
 
-    expect(screen.getByLabelText("Email")).toBeInTheDocument()
+    expect(await screen.findByLabelText("Email")).toBeInTheDocument()
 
     await user.click(screen.getByRole("link", { name: "Back to Fitizen home" }))
 
@@ -38,7 +38,9 @@ describe("SignIn", () => {
 
     render(<TestApp initialEntry="/sign-in?role=coach" />)
 
-    await user.click(screen.getByRole("button", { name: "Continue with email" }))
+    await user.click(
+      await screen.findByRole("button", { name: "Continue with email" })
+    )
 
     expect(screen.getByText("Email is required")).toBeInTheDocument()
     expect(screen.getByLabelText("Email")).toHaveAttribute("aria-invalid", "true")
