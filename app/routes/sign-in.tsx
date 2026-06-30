@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link, redirect, useSearchParams, useSubmit } from "react-router"
+import { Link, redirect, useLoaderData, useSearchParams, useSubmit } from "react-router"
 
 import type { Route } from "./+types/sign-in"
 import { FitizenLogo } from "~/components/fitizen-logo"
@@ -16,6 +16,7 @@ import {
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
 import { Separator } from "~/components/ui/separator"
+import { getPendingInvite } from "~/lib/invite-session.server"
 import {
   createGoogleOAuthState,
   getGoogleAuthorizationUrl,
@@ -30,13 +31,20 @@ import {
 } from "~/lib/sign-in"
 import { cn } from "~/lib/utils"
 
+export async function loader({ request }: Route.LoaderArgs) {
+  const pendingInvite = await getPendingInvite(request)
+
+  return { pendingInvite }
+}
+
 export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData()
   const intent = formData.get("intent")
 
   if (intent === "google") {
-    const role = parseSignInRole(formData.get("role")?.toString() ?? null)
-    const state = createGoogleOAuthState(role)
+    const pendingInvite = await getPendingInvite(request)
+    const role = pendingInvite?.role ?? parseSignInRole(formData.get("role")?.toString() ?? null)
+    const state = createGoogleOAuthState(role, pendingInvite?.inviteId)
 
     return redirect(getGoogleAuthorizationUrl(state))
   }
@@ -64,8 +72,9 @@ const roleDescriptions: Record<SignInRole, string> = {
 
 export default function SignIn() {
   const submit = useSubmit()
+  const { pendingInvite } = useLoaderData<typeof loader>()
   const [searchParams] = useSearchParams()
-  const role = parseSignInRole(searchParams.get("role"))
+  const role: SignInRole = pendingInvite?.role ?? parseSignInRole(searchParams.get("role"))
   const googleSignInError = parseGoogleSignInError(searchParams.get("error"))
 
   const [email, setEmail] = useState("")
@@ -121,23 +130,32 @@ export default function SignIn() {
               </p>
             ) : null}
 
-            <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted/50 p-1">
-              {(["coach", "member"] as const).map((option) => (
-                <Link
-                  key={option}
-                  to={`/sign-in?role=${option}`}
-                  className={cn(
-                    "rounded-md px-3 py-2 text-center text-sm font-medium transition-colors",
-                    role === option
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                  aria-current={role === option ? "page" : undefined}
-                >
-                  {signInRoleLabels[option]}
-                </Link>
-              ))}
-            </div>
+            {pendingInvite ? (
+              <p className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-foreground">
+                You have a pending invite. Continue with Google to finish setting
+                up your {signInRoleLabels[role].toLowerCase()} account.
+              </p>
+            ) : null}
+
+            {!pendingInvite ? (
+              <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted/50 p-1">
+                {(["coach", "member"] as const).map((option) => (
+                  <Link
+                    key={option}
+                    to={`/sign-in?role=${option}`}
+                    className={cn(
+                      "rounded-md px-3 py-2 text-center text-sm font-medium transition-colors",
+                      role === option
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    aria-current={role === option ? "page" : undefined}
+                  >
+                    {signInRoleLabels[option]}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
 
             <form className="space-y-4" onSubmit={handleEmailSubmit} noValidate>
               <div className="space-y-2">
