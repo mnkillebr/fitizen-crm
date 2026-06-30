@@ -10,6 +10,8 @@ export type SessionUser = {
   firstName: string
   lastName: string
   email: string
+  approvedCoach: boolean
+  admin: boolean
 }
 
 export async function getSessionUser(
@@ -36,6 +38,8 @@ export async function getSessionUser(
     firstName: user.firstName,
     lastName: user.lastName,
     email: user.email,
+    approvedCoach: user.approvedCoach,
+    admin: user.admin,
   }
 }
 
@@ -57,6 +61,18 @@ export async function requireRole(
 
   if (user.role !== role) {
     throw redirect(`/dashboard/${user.role}`)
+  }
+
+  return user
+}
+
+export async function requireApprovedCoach(
+  request: Request
+): Promise<SessionUser> {
+  const user = await requireRole(request, "coach")
+
+  if (!user.approvedCoach) {
+    throw redirect("/pending-approval")
   }
 
   return user

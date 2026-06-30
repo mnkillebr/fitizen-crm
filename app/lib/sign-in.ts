@@ -31,7 +31,13 @@ export const googleSignInErrorMessages = {
   google_invalid_state: "Your Google sign in session expired. Please try again.",
   google_failed: "We could not complete Google sign in. Please try again.",
   account_not_found:
-    "No Fitizen account matches this Google sign in. Contact your coach or administrator.",
+    "No Fitizen account matches this Google sign in. You need an invite link from your coach or administrator.",
+  invite_invalid: "This invite link is invalid, expired, or has already been used.",
+  invite_email_mismatch:
+    "This invite is tied to a different email address. Sign in with the invited Google account.",
+  setup_required: "Complete your profile setup before continuing.",
+  pending_approval:
+    "Your coach account is pending approval. Contact an administrator for access.",
 } as const
 
 export type GoogleSignInErrorCode = keyof typeof googleSignInErrorMessages

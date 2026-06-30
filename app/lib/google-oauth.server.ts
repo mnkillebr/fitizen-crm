@@ -13,10 +13,11 @@ type GoogleOAuthConfig = {
   redirectUri: string
 }
 
-type OAuthStatePayload = {
+export type OAuthStatePayload = {
   role: SignInRole
   exp: number
   nonce: string
+  inviteId?: string
 }
 
 export type GoogleUserProfile = {
@@ -127,18 +128,24 @@ function formatGoogleOAuthError(error: unknown): Error {
   return new Error("Google OAuth error: unknown failure")
 }
 
-export function createGoogleOAuthState(role: SignInRole): string {
+export function createGoogleOAuthState(
+  role: SignInRole,
+  inviteId?: string
+): string {
   const payload: OAuthStatePayload = {
     role,
     exp: Date.now() + STATE_TTL_MS,
     nonce: randomUUID(),
+    ...(inviteId ? { inviteId } : {}),
   }
   const encoded = encodeStatePayload(payload)
 
   return `${encoded}.${signStatePayload(encoded)}`
 }
 
-export function verifyGoogleOAuthState(state: string): SignInRole | null {
+export function verifyGoogleOAuthState(
+  state: string
+): OAuthStatePayload | null {
   const [encoded, signature] = state.split(".")
 
   if (!encoded || !signature) {
@@ -162,7 +169,7 @@ export function verifyGoogleOAuthState(state: string): SignInRole | null {
     return null
   }
 
-  return payload.role
+  return payload
 }
 
 export function getGoogleAuthorizationUrl(state: string): string {

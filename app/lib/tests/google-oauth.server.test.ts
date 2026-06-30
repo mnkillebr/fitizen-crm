@@ -39,7 +39,16 @@ describe("google-oauth.server", () => {
   it("round-trips OAuth state for a sign-in role", () => {
     const state = createGoogleOAuthState("member")
 
-    expect(verifyGoogleOAuthState(state)).toBe("member")
+    expect(verifyGoogleOAuthState(state)?.role).toBe("member")
+  })
+
+  it("round-trips OAuth state with an invite id", () => {
+    const inviteId = "44444444-4444-4444-4444-444444444444"
+    const state = createGoogleOAuthState("coach", inviteId)
+    const payload = verifyGoogleOAuthState(state)
+
+    expect(payload?.role).toBe("coach")
+    expect(payload?.inviteId).toBe(inviteId)
   })
 
   it("rejects tampered OAuth state", () => {
