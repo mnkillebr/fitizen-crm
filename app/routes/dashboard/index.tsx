@@ -6,6 +6,10 @@ import { requireUser } from "~/lib/auth.server"
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await requireUser(request)
 
+  if (user.role === "coach" && !user.approvedCoach) {
+    throw redirect("/pending-approval")
+  }
+
   throw redirect(`/dashboard/${user.role}`)
 }
 

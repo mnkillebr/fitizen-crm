@@ -12,6 +12,7 @@ import { DarkModeToggle } from "~/components/dark-mode-toggle"
 
 const coachNavItems = [
   { label: "Overview", to: "/dashboard/coach" },
+  { label: "Clients", to: "/dashboard/coach/clients" },
 ] as const
 
 const memberNavItems = [
