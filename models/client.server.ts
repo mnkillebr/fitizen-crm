@@ -64,3 +64,40 @@ export async function getCoachClientRows(coachId: string): Promise<CoachClientRo
 
   return [...inviteRows, ...activeRows]
 }
+
+export type CoachClientDetail = {
+  id: string
+  name: string
+  email: string
+  joinedAt: string
+}
+
+export async function getCoachClientById(
+  coachId: string,
+  clientId: string
+): Promise<CoachClientDetail | null> {
+  const rows = await db
+    .select({
+      id: User.id,
+      firstName: User.firstName,
+      lastName: User.lastName,
+      email: User.email,
+      joinedAt: CoachMember.createdAt,
+    })
+    .from(CoachMember)
+    .innerJoin(User, eq(CoachMember.memberId, User.id))
+    .where(and(eq(CoachMember.coachId, coachId), eq(CoachMember.memberId, clientId)))
+    .limit(1)
+
+  const member = rows[0]
+  if (!member) {
+    return null
+  }
+
+  return {
+    id: member.id,
+    name: `${member.firstName} ${member.lastName}`.trim(),
+    email: member.email,
+    joinedAt: member.joinedAt.toISOString(),
+  }
+}
