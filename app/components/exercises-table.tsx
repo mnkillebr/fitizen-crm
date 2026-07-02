@@ -19,6 +19,7 @@ import {
 } from "~/components/ui/table"
 import {
   exerciseEquipmentLabels,
+  exerciseMuscleGroupLabels,
   exercisePlaneOfMotionLabels,
   exerciseSupportLabels,
 } from "~/lib/exercise-form"
@@ -35,6 +36,14 @@ export function ExercisesTable({ exercises }: ExercisesTableProps) {
     columnHelper.accessor("name", {
       header: "Name",
       cell: (info) => <span className="font-medium">{info.getValue()}</span>,
+    }),
+    columnHelper.accessor("muscleGroup", {
+      header: "Muscle group",
+      cell: (info) => (
+        <Badge variant="secondary">
+          {exerciseMuscleGroupLabels[info.getValue()]}
+        </Badge>
+      ),
     }),
     columnHelper.accessor("planeOfMotion", {
       header: "Plane",
