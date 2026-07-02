@@ -21,18 +21,21 @@ const coachSections = [
     title: "Clients",
     description: "Review your roster, goals, and contact details in one place.",
     to: "/dashboard/coach/clients",
+    linkLabel: "View clients",
   },
   {
     icon: BarbellIcon,
-    title: "Programs",
-    description: "Build and assign training plans as your clients progress.",
-    to: null,
+    title: "Exercises",
+    description: "Create movements for your workout prescriptions and programs.",
+    to: "/dashboard/coach/exercises",
+    linkLabel: "View exercises",
   },
   {
     icon: CalendarBlankIcon,
     title: "Schedule",
     description: "Manage upcoming sessions and keep your calendar organized.",
     to: null,
+    linkLabel: "Coming soon",
   },
 ] as const
 
@@ -73,9 +76,9 @@ export default function CoachDashboard() {
               </CardHeader>
               <CardContent>
                 {section.to ? (
-                  <p className="text-xs font-medium text-primary">View clients</p>
+                  <p className="text-xs font-medium text-primary">{section.linkLabel}</p>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Coming soon</p>
+                  <p className="text-xs text-muted-foreground">{section.linkLabel}</p>
                 )}
               </CardContent>
             </Card>

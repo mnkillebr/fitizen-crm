@@ -6,6 +6,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import { useState } from "react"
+import { Link } from "react-router"
 
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
@@ -37,7 +38,22 @@ export function ClientsTable({ clients }: ClientsTableProps) {
   const columns = [
     columnHelper.accessor("name", {
       header: "Name",
-      cell: (info) => info.getValue(),
+      cell: (info) => {
+        const row = info.row.original
+
+        if (row.status === "active") {
+          return (
+            <Link
+              to={`/dashboard/coach/client/${row.id}`}
+              className="font-medium text-primary hover:underline"
+            >
+              {info.getValue()}
+            </Link>
+          )
+        }
+
+        return info.getValue()
+      },
     }),
     columnHelper.accessor("email", {
       header: "Email",

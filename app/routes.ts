@@ -11,6 +11,10 @@ export default [
   route("dashboard", "routes/dashboard/layout.tsx", [
     index("routes/dashboard/index.tsx"),
     route("coach/clients", "routes/dashboard/coach.clients.tsx"),
+    route("coach/client/:clientId", "routes/dashboard/coach.client.$clientId.tsx"),
+    route("coach/exercises/new", "routes/dashboard/coach.exercises.new.tsx"),
+    route("coach/exercises/:exerciseId/edit", "routes/dashboard/coach.exercises.$exerciseId.edit.tsx"),
+    route("coach/exercises", "routes/dashboard/coach.exercises.tsx"),
     route("coach", "routes/dashboard/coach.tsx"),
     route("member", "routes/dashboard/member.tsx"),
   ]),
