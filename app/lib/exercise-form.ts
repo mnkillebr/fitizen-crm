@@ -36,6 +36,7 @@ export const exercisePlaneOfMotionLabels: Record<ExercisePlaneOfMotion, string> 
 export const exerciseSupportLabels: Record<ExerciseSupport, string> = {
   unilateral: "Unilateral",
   bilateral: "Bilateral",
+  dynamic: "Dynamic",
 }
 
 export const exerciseMuscleGroupLabels: Record<ExerciseMuscleGroup, string> = {
@@ -67,6 +68,7 @@ export const exerciseEquipmentLabels: Record<ExerciseEquipment, string> = {
   parallettes: "Parallettes",
   trap_bar: "Trap bar",
   glider: "Glider",
+  plyo_box: "Plyo box",
 }
 
 export const exerciseFormSchema = z.object({
