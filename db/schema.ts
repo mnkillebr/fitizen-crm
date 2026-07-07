@@ -17,6 +17,20 @@ export const WorkoutStyle = pgEnum('WorkoutStyle', [
   'cardio',
 ])
 
+export const WorkoutStatus = pgEnum('WorkoutStatus', [
+  'scheduled',
+  'in_progress',
+  'completed',
+  'no_show',
+])
+
+export const WorkoutLogStatus = pgEnum('WorkoutLogStatus', [
+  'in_progress',
+  'completed',
+  'cancelled',
+  'no_show',
+])
+
 /** Groups exercises within a workout; maps to circuits, HIIT intervals, or cardio segments. */
 export const WorkoutBlockType = pgEnum('WorkoutBlockType', [
   'circuit',
@@ -38,6 +52,7 @@ export const ExercisePlaneOfMotion = pgEnum('ExercisePlaneOfMotion', [
 export const ExerciseSupport = pgEnum('ExerciseSupport', [
   'unilateral',
   'bilateral',
+  'dynamic',
 ])
 
 export const ExerciseMuscleGroup = pgEnum('ExerciseMuscleGroup', [
@@ -69,6 +84,7 @@ export const ExerciseEquipment = pgEnum('ExerciseEquipment', [
   'parallettes',
   'trap_bar',
   'glider',
+  'plyo_box',
 ])
 
 export type ExercisePlaneOfMotionValue =
@@ -134,7 +150,7 @@ export const Exercise = pgTable('Exercise', {
   description: text('description'),
   /** Sagittal, frontal, or transverse plane of movement. */
   planeOfMotion: ExercisePlaneOfMotion('planeOfMotion').notNull(),
-  /** Unilateral or bilateral support/stabilization pattern. */
+  /** Unilateral, bilateral or dynamic support/stabilization pattern. */
   support: ExerciseSupport('support').notNull(),
   /** Primary muscle group(s) targeted by the exercise. */
   muscleGroup: ExerciseMuscleGroup('muscleGroup').notNull(),
@@ -160,6 +176,7 @@ export const Workout = pgTable('Workout', {
     .references(() => User.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
   workoutDate: timestamp('workoutDate', { precision: 3 }).notNull(),
   style: WorkoutStyle('style').notNull(),
+  status: WorkoutStatus('status').notNull().default('scheduled'),
   title: text('title'),
   notes: text('notes'),
   createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
@@ -211,7 +228,63 @@ export const WorkoutBlockExercise = pgTable('WorkoutBlockExercise', {
   restAfterSeconds: integer('restAfterSeconds'),
 })
 
-/** Completed workout session with actual performance data in `WorkoutLogEntry` rows. */
+/**
+ * Reusable workout template in a coach's library.
+ * Assigning copies the template into a Workout instance for a client.
+ */
+export const WorkoutTemplate = pgTable('WorkoutTemplate', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  coachId: uuid('coachId')
+    .notNull()
+    .references(() => User.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+  style: WorkoutStyle('style').notNull(),
+  title: text('title').notNull(),
+  notes: text('notes'),
+  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt', { precision: 3 }).notNull(),
+})
+
+/** A grouping unit inside a workout template. */
+export const WorkoutTemplateBlock = pgTable('WorkoutTemplateBlock', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  templateId: uuid('templateId')
+    .notNull()
+    .references(() => WorkoutTemplate.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+  blockType: WorkoutBlockType('blockType').notNull(),
+  orderIndex: integer('orderIndex').notNull(),
+  name: text('name'),
+  rounds: integer('rounds'),
+  restBetweenRoundsSeconds: integer('restBetweenRoundsSeconds'),
+  workDurationSeconds: integer('workDurationSeconds'),
+  restDurationSeconds: integer('restDurationSeconds'),
+  targetDurationSeconds: integer('targetDurationSeconds'),
+  targetIntensity: text('targetIntensity'),
+  notes: text('notes'),
+})
+
+/** Prescribed exercise within a workout template block. */
+export const WorkoutTemplateBlockExercise = pgTable('WorkoutTemplateBlockExercise', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  blockId: uuid('blockId')
+    .notNull()
+    .references(() => WorkoutTemplateBlock.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+  exerciseId: uuid('exerciseId')
+    .notNull()
+    .references(() => Exercise.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
+  orderIndex: integer('orderIndex').notNull(),
+  prescriptionMode: ExercisePrescriptionMode('prescriptionMode').notNull(),
+  targetReps: integer('targetReps'),
+  targetDurationSeconds: integer('targetDurationSeconds'),
+  targetRpe: integer('targetRpe'),
+  targetWeight: real('targetWeight'),
+  tempo: varchar('tempo', { length: 32 }),
+  cue1: text('cue1'),
+  cue2: text('cue2'),
+  cue3: text('cue3'),
+  restAfterSeconds: integer('restAfterSeconds'),
+})
+
+/** Workout session log with actual performance data in `WorkoutLogEntry` rows. */
 export const WorkoutLog = pgTable('WorkoutLog', {
   id: uuid('id').primaryKey().defaultRandom(),
   workoutId: uuid('workoutId')
@@ -225,9 +298,12 @@ export const WorkoutLog = pgTable('WorkoutLog', {
   loggedById: uuid('loggedById')
     .notNull()
     .references(() => User.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
-  completedAt: timestamp('completedAt', { precision: 3 }).notNull(),
+  status: WorkoutLogStatus('status').notNull(),
+  startedAt: timestamp('startedAt', { precision: 3 }).notNull().defaultNow(),
+  completedAt: timestamp('completedAt', { precision: 3 }),
   notes: text('notes'),
   createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt', { precision: 3 }).notNull(),
 })
 
 /** Actual reps, time, RPE, and load logged for a prescribed (or ad-hoc) exercise. */
@@ -277,6 +353,7 @@ export const UserRelations = relations(User, ({ one, many }) => ({
   exercisesCreated: many(Exercise, { relationName: 'exercisesCreated' }),
   coachedWorkouts: many(Workout, { relationName: 'workoutCoach' }),
   assignedWorkouts: many(Workout, { relationName: 'workoutMember' }),
+  workoutTemplates: many(WorkoutTemplate, { relationName: 'workoutTemplateCoach' }),
   coachedWorkoutLogs: many(WorkoutLog, { relationName: 'workoutLogCoach' }),
   memberWorkoutLogs: many(WorkoutLog, { relationName: 'workoutLogMember' }),
   workoutLogsLogged: many(WorkoutLog, { relationName: 'workoutLogLoggedBy' }),
@@ -327,6 +404,7 @@ export const ExerciseRelations = relations(Exercise, ({ one, many }) => ({
     relationName: 'exercisesCreated',
   }),
   blockPrescriptions: many(WorkoutBlockExercise),
+  templateBlockPrescriptions: many(WorkoutTemplateBlockExercise),
   logEntries: many(WorkoutLogEntry),
 }));
 
@@ -402,3 +480,37 @@ export const WorkoutLogEntryRelations = relations(WorkoutLogEntry, ({ one }) => 
     references: [Exercise.id],
   }),
 }));
+
+export const WorkoutTemplateRelations = relations(WorkoutTemplate, ({ one, many }) => ({
+  coach: one(User, {
+    fields: [WorkoutTemplate.coachId],
+    references: [User.id],
+    relationName: 'workoutTemplateCoach',
+  }),
+  blocks: many(WorkoutTemplateBlock),
+}));
+
+export const WorkoutTemplateBlockRelations = relations(
+  WorkoutTemplateBlock,
+  ({ one, many }) => ({
+    template: one(WorkoutTemplate, {
+      fields: [WorkoutTemplateBlock.templateId],
+      references: [WorkoutTemplate.id],
+    }),
+    exercises: many(WorkoutTemplateBlockExercise),
+  })
+);
+
+export const WorkoutTemplateBlockExerciseRelations = relations(
+  WorkoutTemplateBlockExercise,
+  ({ one }) => ({
+    block: one(WorkoutTemplateBlock, {
+      fields: [WorkoutTemplateBlockExercise.blockId],
+      references: [WorkoutTemplateBlock.id],
+    }),
+    exercise: one(Exercise, {
+      fields: [WorkoutTemplateBlockExercise.exerciseId],
+      references: [Exercise.id],
+    }),
+  })
+);
