@@ -27,15 +27,15 @@ const coachSections = [
     icon: BarbellIcon,
     title: "Exercises",
     description: "Create movements for your workout prescriptions and programs.",
-    to: "/dashboard/coach/exercises",
+    to: "/dashboard/exercises",
     linkLabel: "View exercises",
   },
   {
     icon: CalendarBlankIcon,
-    title: "Schedule",
-    description: "Manage upcoming sessions and keep your calendar organized.",
-    to: null,
-    linkLabel: "Coming soon",
+    title: "Workouts",
+    description: "Build reusable workout templates and assign them to clients.",
+    to: "/dashboard/workouts",
+    linkLabel: "View workouts",
   },
 ] as const
 
@@ -60,40 +60,20 @@ export default function CoachDashboard() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {coachSections.map((section) => {
-          const card = (
-            <Card
-              className={
-                section.to
-                  ? "transition-colors hover:border-primary/40 hover:bg-muted/30"
-                  : undefined
-              }
-            >
+        {coachSections.map((section) => (
+          <Link key={section.title} to={section.to} className="block rounded-lg">
+            <Card className="transition-colors hover:border-primary/40 hover:bg-muted/30">
               <CardHeader>
                 <section.icon className="size-5 text-primary" />
                 <CardTitle className="text-lg">{section.title}</CardTitle>
                 <CardDescription>{section.description}</CardDescription>
               </CardHeader>
               <CardContent>
-                {section.to ? (
-                  <p className="text-xs font-medium text-primary">{section.linkLabel}</p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">{section.linkLabel}</p>
-                )}
+                <p className="text-xs font-medium text-primary">{section.linkLabel}</p>
               </CardContent>
             </Card>
-          )
-
-          if (section.to) {
-            return (
-              <Link key={section.title} to={section.to} className="block rounded-lg">
-                {card}
-              </Link>
-            )
-          }
-
-          return <div key={section.title}>{card}</div>
-        })}
+          </Link>
+        ))}
       </div>
     </div>
   )
