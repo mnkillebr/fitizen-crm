@@ -70,7 +70,7 @@ export function ExercisesTable({ exercises }: ExercisesTableProps) {
         return (
           <div className="flex justify-end gap-2">
             <Button variant="outline" size="sm" asChild>
-              <Link to={`/dashboard/coach/exercises/${exercise.id}/edit`}>
+              <Link to={`/dashboard/exercises/${exercise.id}/edit`}>
                 <PencilSimpleIcon />
                 Edit
               </Link>

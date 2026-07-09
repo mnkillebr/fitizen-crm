@@ -56,7 +56,7 @@ export default function CoachCreateExercise() {
     <div className="space-y-8">
       <div>
         <Button variant="ghost" size="sm" className="-ml-2 mb-4" asChild>
-          <Link to="/dashboard/coach/exercises">
+          <Link to="/dashboard/exercises">
             <ArrowLeftIcon />
             Back to exercises
           </Link>

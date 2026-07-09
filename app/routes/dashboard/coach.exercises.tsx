@@ -76,7 +76,7 @@ export default function CoachExercises() {
           </div>
 
           <Button asChild>
-            <Link to="/dashboard/coach/exercises/new">
+            <Link to="/dashboard/exercises/new">
               <PlusIcon />
               Create exercise
             </Link>
