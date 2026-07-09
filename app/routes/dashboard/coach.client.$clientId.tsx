@@ -20,8 +20,14 @@ import {
   CardTitle,
 } from "~/components/ui/card"
 import { requireApprovedCoach } from "~/lib/auth.server"
+import { workoutStyleLabels } from "~/lib/workout-builder"
+import { workoutStatusLabels } from "~/lib/workout-log-form"
 import { cn } from "~/lib/utils"
 import { getCoachClientById } from "../../../models/client.server"
+import {
+  getPreviousCompletedLogForClient,
+  getUpcomingWorkoutForClient,
+} from "../../../models/workout.server"
 
 const placeholderTrends = [
   {
@@ -55,15 +61,20 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     throw new Response("Client not found", { status: 404 })
   }
 
+  const [upcomingWorkout, previousWorkout] = await Promise.all([
+    getUpcomingWorkoutForClient(user.id, params.clientId),
+    getPreviousCompletedLogForClient(user.id, params.clientId),
+  ])
+
   return {
     client,
-    upcomingWorkout: null,
-    previousWorkout: null,
+    upcomingWorkout,
+    previousWorkout,
   }
 }
 
 export default function CoachClientDashboard() {
-  const { client } = useLoaderData<typeof loader>()
+  const { client, upcomingWorkout, previousWorkout } = useLoaderData<typeof loader>()
   const [trendIndex, setTrendIndex] = useState(0)
   const activeTrend = placeholderTrends[trendIndex]
 
@@ -110,12 +121,43 @@ export default function CoachClientDashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border border-dashed p-6 text-center">
-              <p className="text-sm font-medium">No upcoming workout</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Workout scheduling will appear here once assigned.
-              </p>
-            </div>
+            {upcomingWorkout ? (
+              <Link
+                to={`/dashboard/coach/client/${client.id}/workout/${upcomingWorkout.id}/log`}
+                className="block rounded-md border p-4 transition-colors hover:border-primary/40 hover:bg-muted/20"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium">
+                      {upcomingWorkout.title ?? "Scheduled workout"}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {new Date(upcomingWorkout.workoutDate).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="secondary">
+                      {workoutStyleLabels[upcomingWorkout.style]}
+                    </Badge>
+                    <Badge variant="secondary">
+                      {workoutStatusLabels[upcomingWorkout.status]}
+                    </Badge>
+                  </div>
+                </div>
+                <p className="mt-3 text-xs font-medium text-primary">
+                  {upcomingWorkout.status === "in_progress"
+                    ? "Continue workout log"
+                    : "Preview workout"}
+                </p>
+              </Link>
+            ) : (
+              <div className="rounded-md border border-dashed p-6 text-center">
+                <p className="text-sm font-medium">No upcoming workout</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Workout scheduling will appear here once assigned.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -128,12 +170,42 @@ export default function CoachClientDashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border border-dashed p-6 text-center">
-              <p className="text-sm font-medium">No previous workout</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Logged workouts will appear here after sessions are recorded.
-              </p>
-            </div>
+            {previousWorkout ? (
+              <div className="space-y-3">
+                <Link
+                  to={`/dashboard/coach/client/${client.id}/workout-log/${previousWorkout.logId}`}
+                  className="block rounded-md border p-4 transition-colors hover:border-primary/40 hover:bg-muted/20"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium">
+                        {previousWorkout.title ?? "Completed workout"}
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Completed{" "}
+                        {new Date(previousWorkout.completedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Badge variant="secondary">
+                      {workoutStyleLabels[previousWorkout.style]}
+                    </Badge>
+                  </div>
+                  <p className="mt-3 text-xs font-medium text-primary">Review workout</p>
+                </Link>
+                <Button variant="outline" size="sm" asChild>
+                  <Link to={`/dashboard/coach/client/${client.id}/workouts/history`}>
+                    View all
+                  </Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="rounded-md border border-dashed p-6 text-center">
+                <p className="text-sm font-medium">No previous workout</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Logged workouts will appear here after sessions are recorded.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
