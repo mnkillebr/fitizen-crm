@@ -5,7 +5,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { Link } from "react-router"
 
 import { Badge } from "~/components/ui/badge"
@@ -21,6 +21,7 @@ import {
 import type { CoachClientRow } from "../../models/client.server"
 
 const columnHelper = createColumnHelper<CoachClientRow>()
+const coreRowModel = getCoreRowModel()
 
 type ClientsTableProps = {
   clients: CoachClientRow[]
@@ -29,88 +30,91 @@ type ClientsTableProps = {
 export function ClientsTable({ clients }: ClientsTableProps) {
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null)
 
-  async function copyInviteUrl(url: string) {
+  const copyInviteUrl = useCallback(async (url: string) => {
     await navigator.clipboard.writeText(url)
     setCopiedUrl(url)
     window.setTimeout(() => setCopiedUrl(null), 2000)
-  }
+  }, [])
 
-  const columns = [
-    columnHelper.accessor("name", {
-      header: "Name",
-      cell: (info) => {
-        const row = info.row.original
+  const columns = useMemo(
+    () => [
+      columnHelper.accessor("name", {
+        header: "Name",
+        cell: (info) => {
+          const row = info.row.original
 
-        if (row.status === "active") {
+          if (row.status === "active") {
+            return (
+              <Link
+                to={`/dashboard/coach/client/${row.id}`}
+                className="font-medium text-primary hover:underline"
+              >
+                {info.getValue()}
+              </Link>
+            )
+          }
+
+          return info.getValue()
+        },
+      }),
+      columnHelper.accessor("email", {
+        header: "Email",
+        cell: (info) => info.getValue(),
+      }),
+      columnHelper.accessor("status", {
+        header: "Status",
+        cell: (info) => {
+          const status = info.getValue()
           return (
-            <Link
-              to={`/dashboard/coach/client/${row.id}`}
-              className="font-medium text-primary hover:underline"
-            >
-              {info.getValue()}
-            </Link>
+            <Badge variant={status === "active" ? "default" : "secondary"}>
+              {status === "active" ? "Active" : "Invite"}
+            </Badge>
           )
-        }
+        },
+      }),
+      columnHelper.accessor("date", {
+        header: "Date",
+        cell: (info) => {
+          const row = info.row.original
+          const label = row.status === "active" ? "Joined" : "Invited"
+          return (
+            <span className="text-muted-foreground">
+              {label} {new Date(info.getValue()).toLocaleDateString()}
+            </span>
+          )
+        },
+      }),
+      columnHelper.display({
+        id: "actions",
+        header: "",
+        cell: (info) => {
+          const inviteUrl = info.row.original.inviteUrl
 
-        return info.getValue()
-      },
-    }),
-    columnHelper.accessor("email", {
-      header: "Email",
-      cell: (info) => info.getValue(),
-    }),
-    columnHelper.accessor("status", {
-      header: "Status",
-      cell: (info) => {
-        const status = info.getValue()
-        return (
-          <Badge variant={status === "active" ? "default" : "secondary"}>
-            {status === "active" ? "Active" : "Invite"}
-          </Badge>
-        )
-      },
-    }),
-    columnHelper.accessor("date", {
-      header: "Date",
-      cell: (info) => {
-        const row = info.row.original
-        const label = row.status === "active" ? "Joined" : "Invited"
-        return (
-          <span className="text-muted-foreground">
-            {label} {new Date(info.getValue()).toLocaleDateString()}
-          </span>
-        )
-      },
-    }),
-    columnHelper.display({
-      id: "actions",
-      header: "",
-      cell: (info) => {
-        const inviteUrl = info.row.original.inviteUrl
+          if (!inviteUrl) {
+            return null
+          }
 
-        if (!inviteUrl) {
-          return null
-        }
-
-        return (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => copyInviteUrl(inviteUrl)}
-          >
-            <CopyIcon />
-            {copiedUrl === inviteUrl ? "Copied" : "Copy link"}
-          </Button>
-        )
-      },
-    }),
-  ]
+          return (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => copyInviteUrl(inviteUrl)}
+            >
+              <CopyIcon />
+              {copiedUrl === inviteUrl ? "Copied" : "Copy link"}
+            </Button>
+          )
+        },
+      }),
+    ],
+    [copiedUrl, copyInviteUrl]
+  )
 
   const table = useReactTable({
     data: clients,
     columns,
-    getCoreRowModel: getCoreRowModel(),
+    getCoreRowModel: coreRowModel,
   })
 
   if (clients.length === 0) {

@@ -1,4 +1,5 @@
 import { EyeIcon } from "@phosphor-icons/react"
+import { useMemo } from "react"
 import {
   createColumnHelper,
   flexRender,
@@ -20,9 +21,51 @@ import {
 import { workoutStyleLabels } from "~/lib/workout-builder"
 import type { CompletedLogSummary } from "../../models/workout.server"
 
-const columnHelper = createColumnHelper<
-  CompletedLogSummary & { clientId: string }
->()
+type HistoryTableRow = CompletedLogSummary & { clientId: string }
+
+const columnHelper = createColumnHelper<HistoryTableRow>()
+const coreRowModel = getCoreRowModel()
+
+const columns = [
+  columnHelper.accessor("title", {
+    header: "Workout",
+    cell: (info) => (
+      <span className="font-medium">{info.getValue() ?? "Untitled workout"}</span>
+    ),
+  }),
+  columnHelper.accessor("style", {
+    header: "Style",
+    cell: (info) => (
+      <Badge variant="secondary">{workoutStyleLabels[info.getValue()]}</Badge>
+    ),
+  }),
+  columnHelper.accessor("completedAt", {
+    header: "Completed",
+    cell: (info) => (
+      <span className="text-muted-foreground">
+        {new Date(info.getValue()).toLocaleDateString()}
+      </span>
+    ),
+  }),
+  columnHelper.display({
+    id: "actions",
+    header: "",
+    cell: (info) => {
+      const log = info.row.original
+
+      return (
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" asChild>
+            <Link to={`/dashboard/coach/client/${log.clientId}/workout-log/${log.logId}`}>
+              <EyeIcon />
+              Review
+            </Link>
+          </Button>
+        </div>
+      )
+    },
+  }),
+]
 
 type WorkoutHistoryTableProps = {
   clientId: string
@@ -30,53 +73,15 @@ type WorkoutHistoryTableProps = {
 }
 
 export function WorkoutHistoryTable({ clientId, logs }: WorkoutHistoryTableProps) {
-  const data = logs.map((log) => ({ ...log, clientId }))
-
-  const columns = [
-    columnHelper.accessor("title", {
-      header: "Workout",
-      cell: (info) => (
-        <span className="font-medium">{info.getValue() ?? "Untitled workout"}</span>
-      ),
-    }),
-    columnHelper.accessor("style", {
-      header: "Style",
-      cell: (info) => (
-        <Badge variant="secondary">{workoutStyleLabels[info.getValue()]}</Badge>
-      ),
-    }),
-    columnHelper.accessor("completedAt", {
-      header: "Completed",
-      cell: (info) => (
-        <span className="text-muted-foreground">
-          {new Date(info.getValue()).toLocaleDateString()}
-        </span>
-      ),
-    }),
-    columnHelper.display({
-      id: "actions",
-      header: "",
-      cell: (info) => {
-        const log = info.row.original
-
-        return (
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" asChild>
-              <Link to={`/dashboard/coach/client/${clientId}/workout-log/${log.logId}`}>
-                <EyeIcon />
-                Review
-              </Link>
-            </Button>
-          </div>
-        )
-      },
-    }),
-  ]
+  const data = useMemo(
+    () => logs.map((log) => ({ ...log, clientId })),
+    [logs, clientId]
+  )
 
   const table = useReactTable({
     data,
     columns,
-    getCoreRowModel: getCoreRowModel(),
+    getCoreRowModel: coreRowModel,
   })
 
   if (logs.length === 0) {

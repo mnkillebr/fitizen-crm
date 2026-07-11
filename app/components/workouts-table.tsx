@@ -6,7 +6,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import { Form, Link } from "react-router"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
@@ -34,6 +34,7 @@ import type { CoachClientDetail } from "../../models/client.server"
 import type { WorkoutTemplateSelect } from "../../models/workout-template.server"
 
 const columnHelper = createColumnHelper<WorkoutTemplateSelect>()
+const coreRowModel = getCoreRowModel()
 
 type WorkoutsTableProps = {
   templates: WorkoutTemplateSelect[]
@@ -99,93 +100,96 @@ function AssignWorkoutForm({
 export function WorkoutsTable({ templates, clients }: WorkoutsTableProps) {
   const [assigningTemplateId, setAssigningTemplateId] = useState<string | null>(null)
 
-  const columns = [
-    columnHelper.accessor("title", {
-      header: "Title",
-      cell: (info) => <span className="font-medium">{info.getValue()}</span>,
-    }),
-    columnHelper.accessor("style", {
-      header: "Style",
-      cell: (info) => (
-        <Badge variant="secondary">{workoutStyleLabels[info.getValue()]}</Badge>
-      ),
-    }),
-    columnHelper.accessor("updatedAt", {
-      header: "Updated",
-      cell: (info) => (
-        <span className="text-muted-foreground">
-          {new Date(info.getValue()).toLocaleDateString()}
-        </span>
-      ),
-    }),
-    columnHelper.display({
-      id: "actions",
-      header: "",
-      cell: (info) => {
-        const template = info.row.original
-        const isAssigning = assigningTemplateId === template.id
+  const columns = useMemo(
+    () => [
+      columnHelper.accessor("title", {
+        header: "Title",
+        cell: (info) => <span className="font-medium">{info.getValue()}</span>,
+      }),
+      columnHelper.accessor("style", {
+        header: "Style",
+        cell: (info) => (
+          <Badge variant="secondary">{workoutStyleLabels[info.getValue()]}</Badge>
+        ),
+      }),
+      columnHelper.accessor("updatedAt", {
+        header: "Updated",
+        cell: (info) => (
+          <span className="text-muted-foreground">
+            {new Date(info.getValue()).toLocaleDateString()}
+          </span>
+        ),
+      }),
+      columnHelper.display({
+        id: "actions",
+        header: "",
+        cell: (info) => {
+          const template = info.row.original
+          const isAssigning = assigningTemplateId === template.id
 
-        return (
-          <div className="space-y-2">
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={clients.length === 0}
-                onClick={() =>
-                  setAssigningTemplateId(isAssigning ? null : template.id)
-                }
-              >
-                <CalendarBlankIcon />
-                {isAssigning ? "Cancel" : "Assign"}
-              </Button>
-              <Button variant="outline" size="sm" asChild>
-                <Link to={`/dashboard/workouts/${template.id}/edit`}>
-                  <PencilSimpleIcon />
-                  Edit
-                </Link>
-              </Button>
-              <Form
-                method="post"
-                onSubmit={(event) => {
-                  const confirmed = window.confirm(
-                    `Delete "${template.title}"? This cannot be undone.`
-                  )
-
-                  if (!confirmed) {
-                    event.preventDefault()
+          return (
+            <div className="space-y-2">
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={clients.length === 0}
+                  onClick={() =>
+                    setAssigningTemplateId(isAssigning ? null : template.id)
                   }
-                }}
-              >
-                <input type="hidden" name="intent" value="delete-workout" />
-                <input type="hidden" name="templateId" value={template.id} />
-                <Button type="submit" variant="destructive" size="sm">
-                  <TrashIcon />
-                  Delete
+                >
+                  <CalendarBlankIcon />
+                  {isAssigning ? "Cancel" : "Assign"}
                 </Button>
-              </Form>
-            </div>
+                <Button variant="outline" size="sm" asChild>
+                  <Link to={`/dashboard/workouts/${template.id}/edit`}>
+                    <PencilSimpleIcon />
+                    Edit
+                  </Link>
+                </Button>
+                <Form
+                  method="post"
+                  onSubmit={(event) => {
+                    const confirmed = window.confirm(
+                      `Delete "${template.title}"? This cannot be undone.`
+                    )
 
-            {isAssigning ? (
-              clients.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  Add an active client before assigning workouts.
-                </p>
-              ) : (
-                <AssignWorkoutForm template={template} clients={clients} />
-              )
-            ) : null}
-          </div>
-        )
-      },
-    }),
-  ]
+                    if (!confirmed) {
+                      event.preventDefault()
+                    }
+                  }}
+                >
+                  <input type="hidden" name="intent" value="delete-workout" />
+                  <input type="hidden" name="templateId" value={template.id} />
+                  <Button type="submit" variant="destructive" size="sm">
+                    <TrashIcon />
+                    Delete
+                  </Button>
+                </Form>
+              </div>
+
+              {isAssigning ? (
+                clients.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Add an active client before assigning workouts.
+                  </p>
+                ) : (
+                  <AssignWorkoutForm template={template} clients={clients} />
+                )
+              ) : null}
+            </div>
+          )
+        },
+      }),
+    ],
+    [assigningTemplateId, clients]
+  )
 
   const table = useReactTable({
     data: templates,
     columns,
-    getCoreRowModel: getCoreRowModel(),
+    getCoreRowModel: coreRowModel,
   })
 
   if (templates.length === 0) {
