@@ -122,7 +122,7 @@ export default function CoachClientWorkoutLogReview() {
               {workout.title ?? "Workout review"}
             </h1>
             <p className="mt-2 text-muted-foreground">
-              Review and edit a completed session log.
+              Review a completed session log.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -154,6 +154,7 @@ export default function CoachClientWorkoutLogReview() {
             defaultEntries={log.entries}
             defaultNotes={log.notes}
             mode="edit"
+            isCompleted
             submitLabel="Save changes"
             isSubmitting={isSubmitting}
           />

@@ -39,6 +39,7 @@ type WorkoutLogFormProps = {
   defaultNotes?: string | null
   submitLabel?: string
   mode?: "session" | "edit"
+  isCompleted?: boolean
   isSubmitting?: boolean
 }
 
@@ -174,6 +175,7 @@ type NumericStepperProps = {
   parseInput: (raw: string) => number | undefined
   clampValue: (value: number) => number
   matchesTarget?: boolean
+  readOnly?: boolean
 }
 
 function NumericStepper({
@@ -190,6 +192,7 @@ function NumericStepper({
   parseInput,
   clampValue,
   matchesTarget,
+  readOnly = false,
 }: NumericStepperProps) {
   function adjust(delta: number) {
     const base = value ?? clampValue(min)
@@ -207,51 +210,62 @@ function NumericStepper({
         ) : null}
       </div>
 
-      <div
-        className={cn(
-          "flex items-stretch overflow-hidden rounded-md border bg-background",
-          matchesTarget && "border-primary/30 bg-primary/5"
-        )}
-      >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-lg"
-          className="h-11 w-11 shrink-0 rounded-none border-r"
-          onClick={() => adjust(-step)}
-          aria-label={`Decrease ${label.toLowerCase()}`}
+      {readOnly ? (
+        <div
+          className={cn(
+            "flex h-11 items-center justify-center rounded-md border bg-muted/20 text-base tabular-nums",
+            matchesTarget && "border-primary/30 bg-primary/5"
+          )}
         >
-          <MinusIcon />
-        </Button>
-
-        <Input
-          id={id}
-          type="text"
-          inputMode={inputMode}
-          autoComplete="off"
-          maxLength={inputMode === "decimal" ? 5 : 3}
-          className="h-11 min-w-0 flex-1 rounded-none border-0 bg-transparent text-center text-base tabular-nums focus-visible:ring-0"
-          value={value === undefined ? "" : formatDisplay(value)}
-          placeholder="—"
-          onChange={(event) => onChange(parseInput(event.target.value))}
-          onBlur={() => {
-            if (value !== undefined) {
-              onChange(clampValue(value))
-            }
-          }}
-        />
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-lg"
-          className="h-11 w-11 shrink-0 rounded-none border-l"
-          onClick={() => adjust(step)}
-          aria-label={`Increase ${label.toLowerCase()}`}
+          {value === undefined ? "—" : formatDisplay(value)}
+        </div>
+      ) : (
+        <div
+          className={cn(
+            "flex items-stretch overflow-hidden rounded-md border bg-background",
+            matchesTarget && "border-primary/30 bg-primary/5"
+          )}
         >
-          <PlusIcon />
-        </Button>
-      </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-lg"
+            className="h-11 w-11 shrink-0 rounded-none border-r"
+            onClick={() => adjust(-step)}
+            aria-label={`Decrease ${label.toLowerCase()}`}
+          >
+            <MinusIcon />
+          </Button>
+
+          <Input
+            id={id}
+            type="text"
+            inputMode={inputMode}
+            autoComplete="off"
+            maxLength={inputMode === "decimal" ? 5 : 3}
+            className="h-11 min-w-0 flex-1 rounded-none border-0 bg-transparent text-center text-base tabular-nums focus-visible:ring-0"
+            value={value === undefined ? "" : formatDisplay(value)}
+            placeholder="—"
+            onChange={(event) => onChange(parseInput(event.target.value))}
+            onBlur={() => {
+              if (value !== undefined) {
+                onChange(clampValue(value))
+              }
+            }}
+          />
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-lg"
+            className="h-11 w-11 shrink-0 rounded-none border-l"
+            onClick={() => adjust(step)}
+            aria-label={`Increase ${label.toLowerCase()}`}
+          >
+            <PlusIcon />
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
@@ -262,6 +276,7 @@ export function WorkoutLogForm({
   defaultNotes,
   submitLabel = "Complete workout",
   mode = "session",
+  isCompleted = false,
   isSubmitting = false,
 }: WorkoutLogFormProps) {
   const [rows, setRows] = useState<LogRow[]>(() =>
@@ -269,6 +284,8 @@ export function WorkoutLogForm({
   )
   const [notes, setNotes] = useState(defaultNotes ?? "")
   const [rescheduleDate, setRescheduleDate] = useState("")
+  const [isEditing, setIsEditing] = useState(!isCompleted)
+  const isReadOnly = isCompleted && !isEditing
 
   const payloadJson = useMemo(
     () =>
@@ -304,6 +321,16 @@ export function WorkoutLogForm({
         keySet.has(row.rowKey) ? { ...row, ...prescribedValuesForRow(row) } : row
       )
     )
+  }
+
+  function startEditing() {
+    setIsEditing(true)
+  }
+
+  function cancelEditing() {
+    setRows(buildInitialRows(workout, defaultEntries))
+    setNotes(defaultNotes ?? "")
+    setIsEditing(false)
   }
 
   return (
@@ -361,6 +388,17 @@ export function WorkoutLogForm({
             </Button>
           </div>
         </Form>
+      ) : isReadOnly ? (
+        <LogFields
+          workout={workout}
+          rows={rows}
+          notes={notes}
+          isReadOnly
+          onNotesChange={setNotes}
+          onRowChange={updateRow}
+          onResetRows={resetRowsToPrescription}
+          onStartEdit={startEditing}
+        />
       ) : (
         <Form method="post" className="space-y-6">
           <input type="hidden" name="payload" value={payloadJson} readOnly />
@@ -375,9 +413,21 @@ export function WorkoutLogForm({
             onResetRows={resetRowsToPrescription}
           />
 
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Saving..." : submitLabel}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Saving..." : submitLabel}
+            </Button>
+            {isCompleted ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isSubmitting}
+                onClick={cancelEditing}
+              >
+                Cancel
+              </Button>
+            ) : null}
+          </div>
         </Form>
       )}
 
@@ -410,16 +460,20 @@ function LogFields({
   workout,
   rows,
   notes,
+  isReadOnly = false,
   onNotesChange,
   onRowChange,
   onResetRows,
+  onStartEdit,
 }: {
   workout: WorkoutWithDetails
   rows: LogRow[]
   notes: string
+  isReadOnly?: boolean
   onNotesChange: (value: string) => void
   onRowChange: (rowKey: string, updates: Partial<LogRow>) => void
   onResetRows: (rowKeys: string[]) => void
+  onStartEdit?: () => void
 }) {
   return (
     <>
@@ -444,16 +498,28 @@ function LogFields({
                 </Badge>
               </div>
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-9"
-                disabled={allPrescribed}
-                onClick={() => onResetRows(blockRows.map((row) => row.rowKey))}
-              >
-                Log block as prescribed
-              </Button>
+              {isReadOnly ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9"
+                  onClick={onStartEdit}
+                >
+                  Edit log
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9"
+                  disabled={allPrescribed}
+                  onClick={() => onResetRows(blockRows.map((row) => row.rowKey))}
+                >
+                  Log block as prescribed
+                </Button>
+              )}
             </div>
 
             <div className="space-y-3">
@@ -476,16 +542,18 @@ function LogFields({
                         </p>
                       </div>
 
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 shrink-0"
-                        disabled={asPrescribed}
-                        onClick={() => onResetRows([row.rowKey])}
-                      >
-                        As prescribed
-                      </Button>
+                      {isReadOnly ? null : (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 shrink-0"
+                          disabled={asPrescribed}
+                          onClick={() => onResetRows([row.rowKey])}
+                        >
+                          As prescribed
+                        </Button>
+                      )}
                     </div>
 
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -501,6 +569,7 @@ function LogFields({
                           matchesTarget={
                             row.targetReps != null && row.actualReps === row.targetReps
                           }
+                          readOnly={isReadOnly}
                         />
                       ) : (
                         <NumericStepper
@@ -522,6 +591,7 @@ function LogFields({
                             row.targetDurationSeconds != null &&
                             row.actualDurationSeconds === row.targetDurationSeconds
                           }
+                          readOnly={isReadOnly}
                         />
                       )}
 
@@ -536,6 +606,7 @@ function LogFields({
                         parseInput={(raw) => parseLogIntInput(raw, { min: 1, max: 10 })}
                         clampValue={(value) => clampLogRpe(value)}
                         matchesTarget={row.targetRpe != null && row.actualRpe === row.targetRpe}
+                        readOnly={isReadOnly}
                       />
 
                       <NumericStepper
@@ -554,6 +625,7 @@ function LogFields({
                         matchesTarget={
                           row.targetWeight != null && row.actualWeight === row.targetWeight
                         }
+                        readOnly={isReadOnly}
                       />
                     </div>
                   </div>
@@ -566,18 +638,24 @@ function LogFields({
 
       <div className="space-y-2">
         <Label htmlFor="log-notes">Session notes (optional)</Label>
-        <textarea
-          id="log-notes"
-          rows={3}
-          value={notes}
-          onChange={(event) => onNotesChange(event.target.value)}
-          className={cn(
-            "w-full min-w-0 rounded-md border border-input bg-input/20 px-2 py-2 text-sm transition-colors outline-none",
-            "placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30",
-            "dark:bg-input/30"
-          )}
-          placeholder="Session notes, adjustments, etc."
-        />
+        {isReadOnly ? (
+          <p className="rounded-md border bg-muted/20 px-2 py-2 text-sm whitespace-pre-wrap">
+            {notes.trim() ? notes : "No session notes."}
+          </p>
+        ) : (
+          <textarea
+            id="log-notes"
+            rows={3}
+            value={notes}
+            onChange={(event) => onNotesChange(event.target.value)}
+            className={cn(
+              "w-full min-w-0 rounded-md border border-input bg-input/20 px-2 py-2 text-sm transition-colors outline-none",
+              "placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30",
+              "dark:bg-input/30"
+            )}
+            placeholder="Session notes, adjustments, etc."
+          />
+        )}
       </div>
     </>
   )
