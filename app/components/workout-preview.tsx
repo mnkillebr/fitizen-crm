@@ -3,7 +3,34 @@ import {
   prescriptionModeLabels,
   workoutBlockTypeLabels,
 } from "~/lib/workout-builder"
-import type { WorkoutWithDetails } from "../../models/workout.server"
+
+type PreviewExercise = {
+  id: string
+  prescriptionMode: "reps" | "time"
+  targetReps: number | null
+  targetDurationSeconds: number | null
+  targetRpe: number | null
+  targetWeight: number | null
+  tempo: string | null
+  cue1: string | null
+  cue2: string | null
+  cue3: string | null
+  exercise: { name: string }
+}
+
+type PreviewBlock = {
+  id: string
+  name: string | null
+  blockType: keyof typeof workoutBlockTypeLabels
+  rounds: number | null
+  notes: string | null
+  exercises: PreviewExercise[]
+}
+
+type WorkoutPreviewSource = {
+  notes: string | null
+  blocks: PreviewBlock[]
+}
 
 function formatTarget(
   prescriptionMode: "reps" | "time",
@@ -34,7 +61,7 @@ function formatTarget(
 }
 
 type WorkoutPreviewProps = {
-  workout: WorkoutWithDetails
+  workout: WorkoutPreviewSource
 }
 
 export function WorkoutPreview({ workout }: WorkoutPreviewProps) {

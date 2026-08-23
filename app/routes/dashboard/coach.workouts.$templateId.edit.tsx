@@ -54,7 +54,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     throw new Response("Workout not found", { status: 404 })
   }
 
-  throw redirect("/dashboard/workouts")
+  throw redirect(`/dashboard/workouts/${params.templateId}`)
 }
 
 export default function CoachEditWorkout() {
@@ -67,9 +67,9 @@ export default function CoachEditWorkout() {
     <div className="space-y-8">
       <div>
         <Button variant="ghost" size="sm" className="-ml-2 mb-4" asChild>
-          <Link to="/dashboard/workouts">
+          <Link to={`/dashboard/workouts/${template.id}`}>
             <ArrowLeftIcon />
-            Back to workouts
+            Back to workout
           </Link>
         </Button>
 

@@ -1,4 +1,9 @@
-import { CalendarBlankIcon, PencilSimpleIcon, TrashIcon } from "@phosphor-icons/react"
+import {
+  CalendarBlankIcon,
+  EyeIcon,
+  PencilSimpleIcon,
+  TrashIcon,
+} from "@phosphor-icons/react"
 import {
   createColumnHelper,
   flexRender,
@@ -104,7 +109,14 @@ export function WorkoutsTable({ templates, clients }: WorkoutsTableProps) {
     () => [
       columnHelper.accessor("title", {
         header: "Title",
-        cell: (info) => <span className="font-medium">{info.getValue()}</span>,
+        cell: (info) => (
+          <Link
+            to={`/dashboard/workouts/${info.row.original.id}`}
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            {info.getValue()}
+          </Link>
+        ),
       }),
       columnHelper.accessor("style", {
         header: "Style",
@@ -141,6 +153,12 @@ export function WorkoutsTable({ templates, clients }: WorkoutsTableProps) {
                 >
                   <CalendarBlankIcon />
                   {isAssigning ? "Cancel" : "Assign"}
+                </Button>
+                <Button variant="outline" size="sm" asChild>
+                  <Link to={`/dashboard/workouts/${template.id}`}>
+                    <EyeIcon />
+                    View
+                  </Link>
                 </Button>
                 <Button variant="outline" size="sm" asChild>
                   <Link to={`/dashboard/workouts/${template.id}/edit`}>

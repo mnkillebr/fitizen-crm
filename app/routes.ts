@@ -20,6 +20,7 @@ export default [
     route("exercises", "routes/dashboard/coach.exercises.tsx"),
     route("workouts/new", "routes/dashboard/coach.workouts.new.tsx"),
     route("workouts/:templateId/edit", "routes/dashboard/coach.workouts.$templateId.edit.tsx"),
+    route("workouts/:templateId", "routes/dashboard/coach.workouts.$templateId.tsx"),
     route("workouts", "routes/dashboard/coach.workouts.tsx"),
     route("coach", "routes/dashboard/coach.tsx"),
     route("member", "routes/dashboard/member.tsx"),
