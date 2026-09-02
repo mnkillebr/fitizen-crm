@@ -6,10 +6,11 @@ import {
   ChartLineUpIcon,
   ClockCounterClockwiseIcon,
 } from "@phosphor-icons/react"
-import { useState } from "react"
+import { lazy, Suspense, useState } from "react"
 import { Link, useLoaderData } from "react-router"
 
 import type { Route } from "./+types/coach.client.$clientId"
+import type { ChartConfig, TrendChartSeries } from "~/components/trend-chart"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
 import {
@@ -22,36 +23,43 @@ import {
 import { requireApprovedCoach } from "~/lib/auth.server"
 import { workoutStyleLabels } from "~/lib/workout-builder"
 import { workoutStatusLabels } from "~/lib/workout-log-form"
-import { cn } from "~/lib/utils"
+import { calculateVolumeLifted, cn } from "~/lib/utils"
 import { getCoachClientById } from "../../../models/client.server"
 import {
   getPreviousCompletedLogForClient,
   getUpcomingWorkoutForClient,
 } from "../../../models/workout.server"
+import { getExerciseLogEntries } from "../../../models/exercise.server"
 
-const placeholderTrends = [
-  {
-    id: "bench-press",
-    title: "Barbell Bench Press",
-    description: "Max strength progression",
-    metric: "Est. 1RM",
-    value: "— lbs",
-  },
-  {
-    id: "squat",
-    title: "Back Squat",
-    description: "Volume over time",
-    metric: "Weekly volume",
-    value: "— lbs",
-  },
-  {
-    id: "rpe",
-    title: "Session RPE",
-    description: "Average perceived exertion",
-    metric: "Avg RPE",
-    value: "—",
-  },
-] as const
+const TrendChart = lazy(() =>
+  import("~/components/trend-chart").then((mod) => ({ default: mod.TrendChart }))
+)
+
+type TrendSlide = {
+  id: string
+  title: string
+  description: string
+  metric: string
+  value: string
+  chart: {
+    config: ChartConfig
+    data: Array<Record<string, string | number>>
+    xAxisKey: string
+    series: TrendChartSeries[]
+    emptyMessage?: string
+  } | null
+}
+
+function formatChartDate(value: Date | string) {
+  return new Date(value).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  })
+}
+
+function formatVolume(value: number) {
+  return `${value.toLocaleString()} lbs`
+}
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const user = await requireApprovedCoach(request)
@@ -61,32 +69,81 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     throw new Response("Client not found", { status: 404 })
   }
 
-  const [upcomingWorkout, previousWorkout] = await Promise.all([
+  const [upcomingWorkout, previousWorkout, lateralLungeLogEntries] = await Promise.all([
     getUpcomingWorkoutForClient(user.id, params.clientId),
     getPreviousCompletedLogForClient(user.id, params.clientId),
+    getExerciseLogEntries(params.clientId, "4788fb67-4688-4f95-b0f6-cb4f2f59ff70"),
   ])
+
+  const volumeLifted = calculateVolumeLifted(lateralLungeLogEntries)
 
   return {
     client,
     upcomingWorkout,
     previousWorkout,
+    volumeLifted,
   }
 }
 
 export default function CoachClientDashboard() {
-  const { client, upcomingWorkout, previousWorkout } = useLoaderData<typeof loader>()
+  const { client, upcomingWorkout, previousWorkout, volumeLifted } =
+    useLoaderData<typeof loader>()
   const [trendIndex, setTrendIndex] = useState(0)
-  const activeTrend = placeholderTrends[trendIndex]
+
+  const volumeChartData = volumeLifted.map((point) => ({
+    date: formatChartDate(point.date),
+    volume: point.totalVolume,
+  }))
+  const volumeExerciseName = volumeLifted[0]?.exerciseName ?? "Volume"
+  const latestVolume = volumeChartData.at(-1)?.volume
+
+  const trends: TrendSlide[] = [
+    {
+      id: "volume",
+      title: volumeExerciseName,
+      description: "Volume over time",
+      metric: "Latest volume",
+      value: latestVolume != null ? formatVolume(latestVolume) : "— lbs",
+      chart: {
+        config: {
+          volume: {
+            label: "Volume (lbs)",
+            color: "var(--chart-1)",
+          },
+        },
+        data: volumeChartData,
+        xAxisKey: "date",
+        series: [{ dataKey: "volume", type: "natural", showDots: true }],
+        emptyMessage: "No volume logged yet",
+      },
+    },
+    {
+      id: "bench-press",
+      title: "Barbell Bench Press",
+      description: "Max strength progression",
+      metric: "Est. 1RM",
+      value: "— lbs",
+      chart: null,
+    },
+    {
+      id: "rpe",
+      title: "Session RPE",
+      description: "Average perceived exertion",
+      metric: "Avg RPE",
+      value: "—",
+      chart: null,
+    },
+  ]
+
+  const activeTrend = trends[trendIndex]
 
   function showPreviousTrend() {
-    setTrendIndex((current) =>
-      current === 0 ? placeholderTrends.length - 1 : current - 1
-    )
+    setTrendIndex((current) => (current === 0 ? trends.length - 1 : current - 1))
   }
 
   function showNextTrend() {
     setTrendIndex((current) =>
-      current === placeholderTrends.length - 1 ? 0 : current + 1
+      current === trends.length - 1 ? 0 : current + 1
     )
   }
 
@@ -248,7 +305,7 @@ export default function CoachClientDashboard() {
               className="flex transition-transform duration-300 ease-out"
               style={{ transform: `translateX(-${trendIndex * 100}%)` }}
             >
-              {placeholderTrends.map((trend) => (
+              {trends.map((trend) => (
                 <div key={trend.id} className="w-full shrink-0 px-1">
                   <div className="rounded-lg border bg-muted/20 p-6">
                     <div className="flex flex-wrap items-start justify-between gap-4">
@@ -266,13 +323,33 @@ export default function CoachClientDashboard() {
                       </div>
                     </div>
 
-                    <div
-                      className={cn(
-                        "mt-6 flex h-40 items-center justify-center rounded-md border border-dashed",
-                        "bg-background/60 text-sm text-muted-foreground"
+                    <div className="mt-6">
+                      {trend.chart ? (
+                        <Suspense
+                          fallback={
+                            <div className="flex h-40 items-center justify-center rounded-md border border-dashed bg-background/60 text-sm text-muted-foreground">
+                              Loading chart…
+                            </div>
+                          }
+                        >
+                          <TrendChart
+                            config={trend.chart.config}
+                            data={trend.chart.data}
+                            xAxisKey={trend.chart.xAxisKey}
+                            series={trend.chart.series}
+                            emptyMessage={trend.chart.emptyMessage}
+                          />
+                        </Suspense>
+                      ) : (
+                        <div
+                          className={cn(
+                            "flex h-40 items-center justify-center rounded-md border border-dashed",
+                            "bg-background/60 text-sm text-muted-foreground"
+                          )}
+                        >
+                          Chart coming soon
+                        </div>
                       )}
-                    >
-                      Chart placeholder
                     </div>
                   </div>
                 </div>
@@ -281,7 +358,7 @@ export default function CoachClientDashboard() {
           </div>
 
           <div className="mt-4 flex justify-center gap-2">
-            {placeholderTrends.map((trend, index) => (
+            {trends.map((trend, index) => (
               <button
                 key={trend.id}
                 type="button"
@@ -299,7 +376,7 @@ export default function CoachClientDashboard() {
           </div>
 
           <p className="mt-4 text-center text-xs text-muted-foreground">
-            Viewing {activeTrend.title} · trend data will be wired up later
+            Viewing {activeTrend.title}
           </p>
         </CardContent>
       </Card>

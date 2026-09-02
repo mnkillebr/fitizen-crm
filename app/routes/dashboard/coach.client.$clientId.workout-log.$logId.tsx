@@ -110,9 +110,9 @@ export default function CoachClientWorkoutLogReview() {
     <div className="space-y-8">
       <div>
         <Button variant="ghost" size="sm" className="-ml-2 mb-4" asChild>
-          <Link to={`/dashboard/coach/client/${client.id}`}>
+          <Link to={`/dashboard/coach/client/${client.id}/workouts/history`}>
             <ArrowLeftIcon />
-            Back to {client.name}
+            Back to Workout History
           </Link>
         </Button>
 
