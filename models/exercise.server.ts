@@ -3,6 +3,8 @@ import { and, asc, eq, ilike } from "drizzle-orm"
 import db from "../db"
 import {
   Exercise,
+  WorkoutLog,
+  WorkoutLogEntry,
   type ExerciseEquipmentValue,
   type ExercisePlaneOfMotionValue,
   type ExerciseSupportValue,
@@ -35,6 +37,17 @@ export type ExerciseUpdate = Partial<
     "name" | "description" | "muscleGroup" | "planeOfMotion" | "support" | "equipment" | "createdById"
   >
 >
+
+/** Logged performance for an exercise, ordered by session date for volume calculations. */
+export type ExerciseLogVolumePoint = {
+  exerciseName: string
+  completedAt: Date | null
+  actualReps: number | null
+  actualDurationSeconds: number | null
+  actualWeight: number | null
+  roundNumber: number
+  setNumber: number | null
+}
 
 export function createExercise(input: Omit<ExerciseInsert, "id" | "createdAt" | "updatedAt">) {
   const now = new Date()
@@ -107,6 +120,38 @@ export function getExercises(filters?: { createdById?: string; search?: string }
   }
 
   return query
+}
+
+/**
+ * Workout log entries for an exercise, ordered by session date.
+ * Use `actualReps` / `actualWeight` for volume lifted (sets × reps × load)
+ * and `actualDurationSeconds` / `actualWeight` for volume duration (sets × duration × load).
+ */
+export function getExerciseLogEntries(
+  memberId: string,
+  exerciseId: string
+): Promise<ExerciseLogVolumePoint[]> {
+  return db
+    .select({
+      exerciseName: Exercise.name,
+      completedAt: WorkoutLog.completedAt,
+      actualReps: WorkoutLogEntry.actualReps,
+      actualDurationSeconds: WorkoutLogEntry.actualDurationSeconds,
+      actualWeight: WorkoutLogEntry.actualWeight,
+      roundNumber: WorkoutLogEntry.roundNumber,
+      setNumber: WorkoutLogEntry.setNumber,
+    })
+    .from(WorkoutLogEntry)
+    .innerJoin(WorkoutLog, eq(WorkoutLogEntry.workoutLogId, WorkoutLog.id))
+    .innerJoin(Exercise, eq(WorkoutLogEntry.exerciseId, Exercise.id))
+    .where(
+      and(
+        eq(WorkoutLog.memberId, memberId),
+        eq(WorkoutLogEntry.exerciseId, exerciseId),
+        eq(WorkoutLog.status, "completed")
+      )
+    )
+    .orderBy(asc(WorkoutLog.completedAt), asc(WorkoutLogEntry.roundNumber), asc(WorkoutLogEntry.setNumber))
 }
 
 export function updateExercise(id: string, input: ExerciseUpdate) {
