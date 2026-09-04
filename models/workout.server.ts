@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, or } from "drizzle-orm"
+import { and, asc, desc, eq, gte, inArray, or } from "drizzle-orm"
 
 import db from "../db"
 import type { WorkoutLogEntryPayload } from "../app/lib/workout-log-form"
@@ -499,6 +499,9 @@ export async function getUpcomingWorkoutForClient(
   coachId: string,
   memberId: string
 ): Promise<UpcomingWorkoutForClient | null> {
+  const startOfToday = new Date()
+  startOfToday.setHours(0, 0, 0, 0)
+
   const workouts = await db
     .select()
     .from(Workout)
@@ -506,7 +509,8 @@ export async function getUpcomingWorkoutForClient(
       and(
         eq(Workout.coachId, coachId),
         eq(Workout.memberId, memberId),
-        or(eq(Workout.status, "scheduled"), eq(Workout.status, "in_progress"))
+        or(eq(Workout.status, "scheduled"), eq(Workout.status, "in_progress")),
+        gte(Workout.workoutDate, startOfToday)
       )
     )
     .orderBy(asc(Workout.workoutDate))
