@@ -21,62 +21,70 @@ import {
 import { workoutStyleLabels } from "~/lib/workout-builder"
 import type { CompletedLogSummary } from "../../models/workout.server"
 
-type HistoryTableRow = CompletedLogSummary & { clientId: string }
+type HistoryTableRow = CompletedLogSummary & { reviewHref: string }
 
 const columnHelper = createColumnHelper<HistoryTableRow>()
 const coreRowModel = getCoreRowModel()
 
-const columns = [
-  columnHelper.accessor("title", {
-    header: "Workout",
-    cell: (info) => (
-      <span className="font-medium">{info.getValue() ?? "Untitled workout"}</span>
-    ),
-  }),
-  columnHelper.accessor("style", {
-    header: "Style",
-    cell: (info) => (
-      <Badge variant="secondary">{workoutStyleLabels[info.getValue()]}</Badge>
-    ),
-  }),
-  columnHelper.accessor("completedAt", {
-    header: "Completed",
-    cell: (info) => (
-      <span className="text-muted-foreground">
-        {new Date(info.getValue()).toLocaleDateString()}
-      </span>
-    ),
-  }),
-  columnHelper.display({
-    id: "actions",
-    header: "",
-    cell: (info) => {
-      const log = info.row.original
+function buildColumns(reviewLabel: string) {
+  return [
+    columnHelper.accessor("title", {
+      header: "Workout",
+      cell: (info) => (
+        <span className="font-medium">{info.getValue() ?? "Untitled workout"}</span>
+      ),
+    }),
+    columnHelper.accessor("style", {
+      header: "Style",
+      cell: (info) => (
+        <Badge variant="secondary">{workoutStyleLabels[info.getValue()]}</Badge>
+      ),
+    }),
+    columnHelper.accessor("completedAt", {
+      header: "Completed",
+      cell: (info) => (
+        <span className="text-muted-foreground">
+          {new Date(info.getValue()).toLocaleDateString()}
+        </span>
+      ),
+    }),
+    columnHelper.display({
+      id: "actions",
+      header: "",
+      cell: (info) => {
+        const log = info.row.original
 
-      return (
-        <div className="flex justify-end">
-          <Button variant="outline" size="sm" asChild>
-            <Link to={`/dashboard/coach/client/${log.clientId}/workout-log/${log.logId}`}>
-              <EyeIcon />
-              Review
-            </Link>
-          </Button>
-        </div>
-      )
-    },
-  }),
-]
-
-type WorkoutHistoryTableProps = {
-  clientId: string
-  logs: CompletedLogSummary[]
+        return (
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" asChild>
+              <Link to={log.reviewHref}>
+                <EyeIcon />
+                {reviewLabel}
+              </Link>
+            </Button>
+          </div>
+        )
+      },
+    }),
+  ]
 }
 
-export function WorkoutHistoryTable({ clientId, logs }: WorkoutHistoryTableProps) {
+type WorkoutHistoryTableProps = {
+  logs: CompletedLogSummary[]
+  getReviewHref: (log: CompletedLogSummary) => string
+  reviewLabel?: string
+}
+
+export function WorkoutHistoryTable({
+  logs,
+  getReviewHref,
+  reviewLabel = "Review",
+}: WorkoutHistoryTableProps) {
   const data = useMemo(
-    () => logs.map((log) => ({ ...log, clientId })),
-    [logs, clientId]
+    () => logs.map((log) => ({ ...log, reviewHref: getReviewHref(log) })),
+    [logs, getReviewHref]
   )
+  const columns = useMemo(() => buildColumns(reviewLabel), [reviewLabel])
 
   const table = useReactTable({
     data,
