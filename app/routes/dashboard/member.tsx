@@ -3,7 +3,7 @@ import {
   ChartLineUpIcon,
   ChatCircleIcon,
 } from "@phosphor-icons/react"
-import { useOutletContext } from "react-router"
+import { Link, useOutletContext } from "react-router"
 
 import type { Route } from "./+types/member"
 import {
@@ -19,7 +19,9 @@ const memberSections = [
   {
     icon: BarbellIcon,
     title: "Workouts",
-    description: "View assigned sessions and log your training for the week.",
+    description: "View assigned sessions and review your training history.",
+    href: "/dashboard/member/workouts",
+    cta: "View workouts",
   },
   {
     icon: ChartLineUpIcon,
@@ -49,23 +51,45 @@ export default function MemberDashboard() {
           Welcome back, {user.firstName}
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Your member portal is ready. More features will appear here soon.
+          Your training hub for upcoming workouts, history, and progress.
         </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {memberSections.map((section) => (
-          <Card key={section.title}>
-            <CardHeader>
-              <section.icon className="size-5 text-primary" />
-              <CardTitle className="text-lg">{section.title}</CardTitle>
-              <CardDescription>{section.description}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground">Coming soon</p>
-            </CardContent>
-          </Card>
-        ))}
+        {memberSections.map((section) => {
+          const content = (
+            <>
+              <CardHeader>
+                <section.icon className="size-5 text-primary" />
+                <CardTitle className="text-lg">{section.title}</CardTitle>
+                <CardDescription>{section.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {"href" in section ? (
+                  <p className="text-xs font-medium text-primary">{section.cta}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Coming soon</p>
+                )}
+              </CardContent>
+            </>
+          )
+
+          if ("href" in section) {
+            return (
+              <Link
+                key={section.title}
+                to={section.href}
+                className="rounded-xl transition-colors hover:bg-muted/30"
+              >
+                <Card className="h-full transition-colors hover:border-primary/40">
+                  {content}
+                </Card>
+              </Link>
+            )
+          }
+
+          return <Card key={section.title}>{content}</Card>
+        })}
       </div>
     </div>
   )
