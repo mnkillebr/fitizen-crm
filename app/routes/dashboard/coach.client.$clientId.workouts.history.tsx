@@ -62,7 +62,12 @@ export default function CoachClientWorkoutHistory() {
           </div>
         </CardHeader>
         <CardContent>
-          <WorkoutHistoryTable clientId={client.id} logs={logs} />
+          <WorkoutHistoryTable
+            logs={logs}
+            getReviewHref={(log) =>
+              `/dashboard/coach/client/${client.id}/workout-log/${log.logId}`
+            }
+          />
         </CardContent>
       </Card>
     </div>

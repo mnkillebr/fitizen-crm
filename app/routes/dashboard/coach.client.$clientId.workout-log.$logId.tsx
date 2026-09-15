@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, ClockCounterClockwiseIcon } from "@phosphor-icons/react"
+import { ArrowLeftIcon, ChatCircleIcon, ClockCounterClockwiseIcon } from "@phosphor-icons/react"
 import { Link, redirect, useActionData, useLoaderData, useNavigation } from "react-router"
 
 import type { Route } from "./+types/coach.client.$clientId.workout-log.$logId"
@@ -160,6 +160,23 @@ export default function CoachClientWorkoutLogReview() {
           />
         </CardContent>
       </Card>
+
+      {log.memberFeedback ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <ChatCircleIcon className="size-5 text-primary" />
+              Member feedback
+            </CardTitle>
+            <CardDescription>
+              Comments left by {client.name} after this session.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="whitespace-pre-wrap text-sm">{log.memberFeedback}</p>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   )
 }
