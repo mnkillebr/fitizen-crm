@@ -40,6 +40,7 @@ type WorkoutLogFormProps = {
   submitLabel?: string
   mode?: "session" | "edit"
   isCompleted?: boolean
+  allowEdit?: boolean
   isSubmitting?: boolean
 }
 
@@ -277,6 +278,7 @@ export function WorkoutLogForm({
   submitLabel = "Complete workout",
   mode = "session",
   isCompleted = false,
+  allowEdit = true,
   isSubmitting = false,
 }: WorkoutLogFormProps) {
   const [rows, setRows] = useState<LogRow[]>(() =>
@@ -284,8 +286,8 @@ export function WorkoutLogForm({
   )
   const [notes, setNotes] = useState(defaultNotes ?? "")
   const [rescheduleDate, setRescheduleDate] = useState("")
-  const [isEditing, setIsEditing] = useState(!isCompleted)
-  const isReadOnly = isCompleted && !isEditing
+  const [isEditing, setIsEditing] = useState(!isCompleted && allowEdit)
+  const isReadOnly = isCompleted && (!allowEdit || !isEditing)
 
   const payloadJson = useMemo(
     () =>
@@ -397,7 +399,7 @@ export function WorkoutLogForm({
           onNotesChange={setNotes}
           onRowChange={updateRow}
           onResetRows={resetRowsToPrescription}
-          onStartEdit={startEditing}
+          onStartEdit={allowEdit ? startEditing : undefined}
         />
       ) : (
         <Form method="post" className="space-y-6">
@@ -499,15 +501,17 @@ function LogFields({
               </div>
 
               {isReadOnly ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-9"
-                  onClick={onStartEdit}
-                >
-                  Edit log
-                </Button>
+                onStartEdit ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    onClick={onStartEdit}
+                  >
+                    Edit log
+                  </Button>
+                ) : null
               ) : (
                 <Button
                   type="button"
