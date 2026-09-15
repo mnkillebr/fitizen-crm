@@ -302,6 +302,7 @@ export const WorkoutLog = pgTable('WorkoutLog', {
   startedAt: timestamp('startedAt', { precision: 3 }).notNull().defaultNow(),
   completedAt: timestamp('completedAt', { precision: 3 }),
   notes: text('notes'),
+  memberFeedback: text('memberFeedback'),
   createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
   updatedAt: timestamp('updatedAt', { precision: 3 }).notNull(),
 })
