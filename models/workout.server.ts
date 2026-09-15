@@ -33,7 +33,13 @@ export type WorkoutLogInsert = typeof WorkoutLog.$inferInsert
 export type WorkoutLogUpdate = Partial<
   Pick<
     WorkoutLogInsert,
-    "completedAt" | "notes" | "workoutId" | "status" | "startedAt" | "updatedAt"
+    | "completedAt"
+    | "notes"
+    | "memberFeedback"
+    | "workoutId"
+    | "status"
+    | "startedAt"
+    | "updatedAt"
   >
 >
 export type WorkoutLogSelect = typeof WorkoutLog.$inferSelect
@@ -604,6 +610,146 @@ export async function getCompletedLogsForClient(
       completedAt: row.completedAt,
       workoutDate: row.workoutDate,
     }))
+}
+
+export async function getUpcomingWorkoutForMember(
+  memberId: string
+): Promise<UpcomingWorkoutForClient | null> {
+  const startOfToday = new Date()
+  startOfToday.setHours(0, 0, 0, 0)
+
+  const workouts = await db
+    .select()
+    .from(Workout)
+    .where(
+      and(
+        eq(Workout.memberId, memberId),
+        or(eq(Workout.status, "scheduled"), eq(Workout.status, "in_progress")),
+        gte(Workout.workoutDate, startOfToday)
+      )
+    )
+    .orderBy(asc(Workout.workoutDate))
+    .limit(1)
+
+  const workout = workouts[0]
+  if (!workout) {
+    return null
+  }
+
+  let activeLogId: string | null = null
+  if (workout.status === "in_progress") {
+    const activeLogs = await getActiveLogForWorkout(workout.id)
+    activeLogId = activeLogs[0]?.id ?? null
+  }
+
+  return { ...workout, activeLogId }
+}
+
+export async function getPreviousCompletedLogForMember(
+  memberId: string
+): Promise<CompletedLogSummary | null> {
+  const rows = await db
+    .select({
+      logId: WorkoutLog.id,
+      workoutId: WorkoutLog.workoutId,
+      title: Workout.title,
+      style: Workout.style,
+      completedAt: WorkoutLog.completedAt,
+      workoutDate: Workout.workoutDate,
+    })
+    .from(WorkoutLog)
+    .leftJoin(Workout, eq(WorkoutLog.workoutId, Workout.id))
+    .where(and(eq(WorkoutLog.memberId, memberId), eq(WorkoutLog.status, "completed")))
+    .orderBy(desc(WorkoutLog.completedAt))
+    .limit(1)
+
+  const row = rows[0]
+  if (!row?.completedAt) {
+    return null
+  }
+
+  return {
+    logId: row.logId,
+    workoutId: row.workoutId,
+    title: row.title,
+    style: row.style ?? "strength_circuit",
+    completedAt: row.completedAt,
+    workoutDate: row.workoutDate,
+  }
+}
+
+export async function getCompletedLogsForMember(
+  memberId: string
+): Promise<CompletedLogSummary[]> {
+  const rows = await db
+    .select({
+      logId: WorkoutLog.id,
+      workoutId: WorkoutLog.workoutId,
+      title: Workout.title,
+      style: Workout.style,
+      completedAt: WorkoutLog.completedAt,
+      workoutDate: Workout.workoutDate,
+    })
+    .from(WorkoutLog)
+    .leftJoin(Workout, eq(WorkoutLog.workoutId, Workout.id))
+    .where(and(eq(WorkoutLog.memberId, memberId), eq(WorkoutLog.status, "completed")))
+    .orderBy(desc(WorkoutLog.completedAt))
+
+  return rows
+    .filter((row): row is typeof row & { completedAt: Date } => row.completedAt !== null)
+    .map((row) => ({
+      logId: row.logId,
+      workoutId: row.workoutId,
+      title: row.title,
+      style: row.style ?? "strength_circuit",
+      completedAt: row.completedAt,
+      workoutDate: row.workoutDate,
+    }))
+}
+
+export async function getMemberWorkout(memberId: string, workoutId: string) {
+  const workouts = await db
+    .select()
+    .from(Workout)
+    .where(and(eq(Workout.id, workoutId), eq(Workout.memberId, memberId)))
+
+  if (!workouts[0]) {
+    return null
+  }
+
+  return getWorkoutWithDetails(workoutId)
+}
+
+export async function getMemberWorkoutLog(memberId: string, logId: string) {
+  const logs = await db
+    .select()
+    .from(WorkoutLog)
+    .where(and(eq(WorkoutLog.id, logId), eq(WorkoutLog.memberId, memberId)))
+
+  return logs[0] ?? null
+}
+
+export async function updateMemberWorkoutFeedback(
+  memberId: string,
+  logId: string,
+  memberFeedback: string
+) {
+  const log = await getMemberWorkoutLog(memberId, logId)
+
+  if (!log || log.status !== "completed") {
+    return null
+  }
+
+  const [updated] = await db
+    .update(WorkoutLog)
+    .set({
+      memberFeedback: memberFeedback.trim() || null,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(WorkoutLog.id, logId), eq(WorkoutLog.memberId, memberId)))
+    .returning()
+
+  return updated ?? null
 }
 
 export function getActiveLogForWorkout(workoutId: string) {
