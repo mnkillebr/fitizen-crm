@@ -339,6 +339,29 @@ export const CoachMember = pgTable('CoachMember', {
   createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
 });
 
+/**
+ * InBody composition scan for a member.
+ * Weight and skeletal muscle mass are stored in lbs; BMR in kcal.
+ */
+export const InBodyScan = pgTable('InBodyScan', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  memberId: uuid('memberId')
+    .notNull()
+    .references(() => User.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+  recordedById: uuid('recordedById')
+    .notNull()
+    .references(() => User.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+  scannedAt: timestamp('scannedAt', { precision: 3 }).notNull(),
+  weightLbs: real('weightLbs').notNull(),
+  skeletalMuscleMassLbs: real('skeletalMuscleMassLbs').notNull(),
+  percentBodyFat: real('percentBodyFat').notNull(),
+  ecwRatio: real('ecwRatio').notNull(),
+  basalMetabolicRate: real('basalMetabolicRate').notNull(),
+  notes: text('notes'),
+  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt', { precision: 3 }).notNull(),
+})
+
 export const UserRelations = relations(User, ({ one, many }) => ({
   googleProfile: one(GoogleProfile, {
     fields: [User.id],
@@ -358,6 +381,8 @@ export const UserRelations = relations(User, ({ one, many }) => ({
   coachedWorkoutLogs: many(WorkoutLog, { relationName: 'workoutLogCoach' }),
   memberWorkoutLogs: many(WorkoutLog, { relationName: 'workoutLogMember' }),
   workoutLogsLogged: many(WorkoutLog, { relationName: 'workoutLogLoggedBy' }),
+  inBodyScans: many(InBodyScan, { relationName: 'inBodyScanMember' }),
+  inBodyScansRecorded: many(InBodyScan, { relationName: 'inBodyScanRecordedBy' }),
 }));
 
 export const InviteRelations = relations(Invite, ({ one }) => ({
@@ -395,6 +420,19 @@ export const CoachMemberRelations = relations(CoachMember, ({ one }) => ({
     fields: [CoachMember.memberId],
     references: [User.id],
     relationName: 'memberCoach',
+  }),
+}));
+
+export const InBodyScanRelations = relations(InBodyScan, ({ one }) => ({
+  member: one(User, {
+    fields: [InBodyScan.memberId],
+    references: [User.id],
+    relationName: 'inBodyScanMember',
+  }),
+  recordedBy: one(User, {
+    fields: [InBodyScan.recordedById],
+    references: [User.id],
+    relationName: 'inBodyScanRecordedBy',
   }),
 }));
 
