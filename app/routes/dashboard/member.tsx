@@ -26,7 +26,9 @@ const memberSections = [
   {
     icon: ChartLineUpIcon,
     title: "Progress",
-    description: "Track measurements, PRs, and milestones over time.",
+    description: "Track InBody scans and body composition over time.",
+    href: "/dashboard/member/progress",
+    cta: "View progress",
   },
   {
     icon: ChatCircleIcon,
