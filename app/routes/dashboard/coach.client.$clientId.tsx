@@ -5,12 +5,23 @@ import {
   CaretRightIcon,
   ChartLineUpIcon,
   ClockCounterClockwiseIcon,
+  PlusIcon,
 } from "@phosphor-icons/react"
 import { lazy, Suspense, useState } from "react"
-import { Link, useLoaderData } from "react-router"
+import {
+  Form,
+  Link,
+  redirect,
+  useActionData,
+  useLoaderData,
+  useNavigation,
+} from "react-router"
 
 import type { Route } from "./+types/coach.client.$clientId"
 import type { ChartConfig, TrendChartSeries } from "~/components/trend-chart"
+import { InBodyScanForm } from "~/components/inbody-scan-form"
+import { InBodyScanHistory } from "~/components/inbody-scan-history"
+import { InBodyTrends } from "~/components/inbody-trends"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
 import {
@@ -21,15 +32,26 @@ import {
   CardTitle,
 } from "~/components/ui/card"
 import { requireApprovedCoach } from "~/lib/auth.server"
+import {
+  getInBodyFormFieldErrors,
+  parseInBodyFormData,
+  type InBodyFormFieldErrors,
+} from "~/lib/inbody-form"
 import { workoutStyleLabels } from "~/lib/workout-builder"
 import { workoutStatusLabels } from "~/lib/workout-log-form"
 import { calculateVolumeLifted, cn } from "~/lib/utils"
 import { getCoachClientById } from "../../../models/client.server"
+import { getExerciseLogEntries } from "../../../models/exercise.server"
+import {
+  createCoachInBodyScan,
+  deleteCoachInBodyScan,
+  getCoachInBodyScansForMember,
+  updateCoachInBodyScan,
+} from "../../../models/inbody.server"
 import {
   getPreviousCompletedLogForClient,
   getUpcomingWorkoutForClient,
 } from "../../../models/workout.server"
-import { getExerciseLogEntries } from "../../../models/exercise.server"
 
 const TrendChart = lazy(() =>
   import("~/components/trend-chart").then((mod) => ({ default: mod.TrendChart }))
@@ -50,6 +72,14 @@ type TrendSlide = {
   } | null
 }
 
+type ActionData =
+  | {
+      fieldErrors?: InBodyFormFieldErrors
+      formError?: string
+      editingScanId?: string | null
+    }
+  | null
+
 function formatChartDate(value: Date | string) {
   return new Date(value).toLocaleDateString(undefined, {
     month: "short",
@@ -69,11 +99,17 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     throw new Response("Client not found", { status: 404 })
   }
 
-  const [upcomingWorkout, previousWorkout, lateralLungeLogEntries] = await Promise.all([
-    getUpcomingWorkoutForClient(user.id, params.clientId),
-    getPreviousCompletedLogForClient(user.id, params.clientId),
-    getExerciseLogEntries(params.clientId, "4788fb67-4688-4f95-b0f6-cb4f2f59ff70"),
-  ])
+  const [upcomingWorkout, previousWorkout, lateralLungeLogEntries, inBodyScans] =
+    await Promise.all([
+      getUpcomingWorkoutForClient(user.id, params.clientId),
+      getPreviousCompletedLogForClient(user.id, params.clientId),
+      getExerciseLogEntries(params.clientId, "4788fb67-4688-4f95-b0f6-cb4f2f59ff70"),
+      getCoachInBodyScansForMember(user.id, params.clientId, "desc"),
+    ])
+
+  if (!inBodyScans) {
+    throw new Response("Client not found", { status: 404 })
+  }
 
   const volumeLifted = calculateVolumeLifted(lateralLungeLogEntries)
 
@@ -82,13 +118,104 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     upcomingWorkout,
     previousWorkout,
     volumeLifted,
+    inBodyScans,
   }
 }
 
+export async function action({ request, params }: Route.ActionArgs) {
+  const user = await requireApprovedCoach(request)
+  const client = await getCoachClientById(user.id, params.clientId)
+
+  if (!client) {
+    throw new Response("Client not found", { status: 404 })
+  }
+
+  const formData = await request.formData()
+  const intent = formData.get("intent")?.toString()
+  const clientUrl = `/dashboard/coach/client/${params.clientId}`
+
+  if (intent === "edit-scan") {
+    const scanId = formData.get("scanId")?.toString()
+    if (!scanId) {
+      return { formError: "Scan not found." } satisfies ActionData
+    }
+    return { editingScanId: scanId } satisfies ActionData
+  }
+
+  if (intent === "cancel-edit") {
+    return { editingScanId: null } satisfies ActionData
+  }
+
+  if (intent === "delete-scan") {
+    const scanId = formData.get("scanId")?.toString()
+    if (!scanId) {
+      return { formError: "Scan not found." } satisfies ActionData
+    }
+
+    const deleted = await deleteCoachInBodyScan(user.id, params.clientId, scanId)
+    if (!deleted) {
+      return { formError: "Unable to delete this scan." } satisfies ActionData
+    }
+
+    throw redirect(clientUrl)
+  }
+
+  if (intent === "create-scan" || intent === "update-scan") {
+    const parsed = parseInBodyFormData(formData)
+    if (!parsed.success) {
+      return {
+        fieldErrors: getInBodyFormFieldErrors(parsed.error),
+        editingScanId:
+          intent === "update-scan"
+            ? formData.get("scanId")?.toString() ?? null
+            : null,
+      } satisfies ActionData
+    }
+
+    if (intent === "create-scan") {
+      const created = await createCoachInBodyScan(
+        user.id,
+        params.clientId,
+        user.id,
+        parsed.data
+      )
+      if (!created) {
+        return { formError: "Unable to save this scan." } satisfies ActionData
+      }
+      throw redirect(clientUrl)
+    }
+
+    const scanId = formData.get("scanId")?.toString()
+    if (!scanId) {
+      return { formError: "Scan not found." } satisfies ActionData
+    }
+
+    const updated = await updateCoachInBodyScan(
+      user.id,
+      params.clientId,
+      scanId,
+      parsed.data
+    )
+    if (!updated) {
+      return { formError: "Unable to update this scan." } satisfies ActionData
+    }
+
+    throw redirect(clientUrl)
+  }
+
+  return null
+}
+
 export default function CoachClientDashboard() {
-  const { client, upcomingWorkout, previousWorkout, volumeLifted } =
+  const { client, upcomingWorkout, previousWorkout, volumeLifted, inBodyScans } =
     useLoaderData<typeof loader>()
+  const actionData = useActionData<typeof action>()
+  const navigation = useNavigation()
+  const isSubmitting = navigation.state === "submitting"
   const [trendIndex, setTrendIndex] = useState(0)
+  const [showCreateForm, setShowCreateForm] = useState(inBodyScans.length === 0)
+
+  const editingScanId = actionData?.editingScanId ?? null
 
   const volumeChartData = volumeLifted.map((point) => ({
     date: formatChartDate(point.date),
@@ -378,6 +505,95 @@ export default function CoachClientDashboard() {
           <p className="mt-4 text-center text-xs text-muted-foreground">
             Viewing {activeTrend.title}
           </p>
+        </CardContent>
+      </Card>
+
+      {actionData?.formError ? (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          {actionData.formError}
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">InBody</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Log and track body composition scans for {client.name}.
+          </p>
+        </div>
+        {!showCreateForm && !editingScanId ? (
+          <Button type="button" onClick={() => setShowCreateForm(true)}>
+            <PlusIcon />
+            Log scan
+          </Button>
+        ) : null}
+      </div>
+
+      <InBodyTrends
+        scans={inBodyScans}
+        description={`Body composition trends for ${client.name}.`}
+      />
+
+      {showCreateForm && !editingScanId ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <PlusIcon className="size-5 text-primary" />
+              Log InBody scan
+            </CardTitle>
+            <CardDescription>
+              Enter values from {client.name}&apos;s InBody report.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form method="post">
+              <InBodyScanForm
+                fieldErrors={
+                  !editingScanId ? actionData?.fieldErrors : undefined
+                }
+                submitLabel="Save scan"
+                submitIntent="create-scan"
+                isSubmitting={isSubmitting}
+                cancelSlot={
+                  inBodyScans.length > 0 ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={isSubmitting}
+                      onClick={() => setShowCreateForm(false)}
+                    >
+                      Cancel
+                    </Button>
+                  ) : null
+                }
+              />
+            </Form>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ChartLineUpIcon className="size-5 text-primary" />
+                Scan history
+              </CardTitle>
+              <CardDescription>
+                Review, edit, or delete past InBody scans.
+              </CardDescription>
+            </div>
+            <Badge variant="secondary">{inBodyScans.length} total</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <InBodyScanHistory
+            scans={inBodyScans}
+            editingScanId={editingScanId}
+            fieldErrors={editingScanId ? actionData?.fieldErrors : undefined}
+            isSubmitting={isSubmitting}
+          />
         </CardContent>
       </Card>
     </div>
