@@ -27,6 +27,7 @@ export default [
     route("member/workouts/:workoutId", "routes/dashboard/member.workouts.$workoutId.tsx"),
     route("member/workout-log/:logId", "routes/dashboard/member.workout-log.$logId.tsx"),
     route("member/workouts", "routes/dashboard/member.workouts.tsx"),
+    route("member/progress", "routes/dashboard/member.progress.tsx"),
     route("member", "routes/dashboard/member.tsx"),
   ]),
 ] satisfies RouteConfig
