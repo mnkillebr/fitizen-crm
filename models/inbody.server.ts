@@ -169,3 +169,16 @@ export async function getCoachInBodyScansForMember(
 
   return getInBodyScansForMember(memberId, order)
 }
+
+export async function getCoachInBodyScan(
+  coachId: string,
+  memberId: string,
+  scanId: string
+) {
+  const client = await getCoachClientById(coachId, memberId)
+  if (!client) {
+    return null
+  }
+
+  return getMemberInBodyScan(memberId, scanId)
+}
