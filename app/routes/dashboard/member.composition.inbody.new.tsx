@@ -1,7 +1,7 @@
 import { ArrowLeftIcon, PlusIcon } from "@phosphor-icons/react"
 import { Form, Link, redirect, useActionData, useNavigation } from "react-router"
 
-import type { Route } from "./+types/member.progress.inbody.new"
+import type { Route } from "./+types/member.composition.inbody.new"
 import { InBodyScanForm } from "~/components/inbody-scan-form"
 import { Button } from "~/components/ui/button"
 import {
@@ -18,7 +18,7 @@ import {
 } from "~/lib/inbody-form"
 import { createInBodyScan } from "../../../models/inbody.server"
 
-const progressUrl = "/dashboard/member/progress"
+const compositionUrl = "/dashboard/member/composition"
 
 export async function loader({ request }: Route.LoaderArgs) {
   await requireRole(request, "member")
@@ -37,7 +37,7 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   await createInBodyScan(user.id, user.id, parsed.data)
-  throw redirect(progressUrl)
+  throw redirect(compositionUrl)
 }
 
 export default function MemberLogInBodyScan() {
@@ -49,9 +49,9 @@ export default function MemberLogInBodyScan() {
     <div className="space-y-8">
       <div>
         <Button variant="ghost" size="sm" className="-ml-2 mb-4" asChild>
-          <Link to={progressUrl}>
+          <Link to={compositionUrl}>
             <ArrowLeftIcon />
-            Back to progress
+            Back to body composition
           </Link>
         </Button>
 
@@ -80,7 +80,7 @@ export default function MemberLogInBodyScan() {
               isSubmitting={isSubmitting}
               cancelSlot={
                 <Button variant="outline" asChild>
-                  <Link to={progressUrl}>Cancel</Link>
+                  <Link to={compositionUrl}>Cancel</Link>
                 </Button>
               }
             />

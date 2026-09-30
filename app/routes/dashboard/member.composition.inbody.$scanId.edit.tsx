@@ -8,7 +8,7 @@ import {
   useNavigation,
 } from "react-router"
 
-import type { Route } from "./+types/member.progress.inbody.$scanId.edit"
+import type { Route } from "./+types/member.composition.inbody.$scanId.edit"
 import { InBodyScanForm } from "~/components/inbody-scan-form"
 import { Button } from "~/components/ui/button"
 import {
@@ -28,7 +28,7 @@ import {
   updateInBodyScan,
 } from "../../../models/inbody.server"
 
-const progressUrl = "/dashboard/member/progress"
+const compositionUrl = "/dashboard/member/composition"
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const user = await requireRole(request, "member")
@@ -63,7 +63,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     throw new Response("Scan not found", { status: 404 })
   }
 
-  throw redirect(progressUrl)
+  throw redirect(compositionUrl)
 }
 
 export default function MemberEditInBodyScan() {
@@ -76,9 +76,9 @@ export default function MemberEditInBodyScan() {
     <div className="space-y-8">
       <div>
         <Button variant="ghost" size="sm" className="-ml-2 mb-4" asChild>
-          <Link to={progressUrl}>
+          <Link to={compositionUrl}>
             <ArrowLeftIcon />
-            Back to progress
+            Back to body composition
           </Link>
         </Button>
 
@@ -108,7 +108,7 @@ export default function MemberEditInBodyScan() {
               isSubmitting={isSubmitting}
               cancelSlot={
                 <Button variant="outline" asChild>
-                  <Link to={progressUrl}>Cancel</Link>
+                  <Link to={compositionUrl}>Cancel</Link>
                 </Button>
               }
             />

@@ -29,9 +29,9 @@ export default [
     route("member/workouts/:workoutId", "routes/dashboard/member.workouts.$workoutId.tsx"),
     route("member/workout-log/:logId", "routes/dashboard/member.workout-log.$logId.tsx"),
     route("member/workouts", "routes/dashboard/member.workouts.tsx"),
-    route("member/progress/inbody/new", "routes/dashboard/member.progress.inbody.new.tsx"),
-    route("member/progress/inbody/:scanId/edit", "routes/dashboard/member.progress.inbody.$scanId.edit.tsx"),
-    route("member/progress", "routes/dashboard/member.progress.tsx"),
+    route("member/composition/inbody/new", "routes/dashboard/member.composition.inbody.new.tsx"),
+    route("member/composition/inbody/:scanId/edit", "routes/dashboard/member.composition.inbody.$scanId.edit.tsx"),
+    route("member/composition", "routes/dashboard/member.composition.tsx"),
     route("member", "routes/dashboard/member.tsx"),
   ]),
 ] satisfies RouteConfig

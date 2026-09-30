@@ -6,7 +6,7 @@ import {
   useLoaderData,
 } from "react-router"
 
-import type { Route } from "./+types/member.progress"
+import type { Route } from "./+types/member.composition"
 import { InBodyScanHistory } from "~/components/inbody-scan-history"
 import { InBodyTrends } from "~/components/inbody-trends"
 import { Badge } from "~/components/ui/badge"
@@ -53,13 +53,13 @@ export async function action({ request }: Route.ActionArgs) {
       return { formError: "Unable to delete this scan." } satisfies ActionData
     }
 
-    throw redirect("/dashboard/member/progress")
+    throw redirect("/dashboard/member/composition")
   }
 
   return null
 }
 
-export default function MemberProgress() {
+export default function MemberComposition() {
   const { scans } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
 
@@ -75,13 +75,13 @@ export default function MemberProgress() {
 
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Progress</h1>
+            <h1 className="text-3xl font-semibold tracking-tight">Body Composition</h1>
             <p className="mt-2 text-muted-foreground">
               Log InBody scans and track body composition over time.
             </p>
           </div>
           <Button asChild>
-            <Link to="/dashboard/member/progress/inbody/new">
+            <Link to="/dashboard/member/composition/inbody/new">
               <PlusIcon />
               Log scan
             </Link>
@@ -116,7 +116,7 @@ export default function MemberProgress() {
           <InBodyScanHistory
             scans={scans}
             getEditPath={(scanId) =>
-              `/dashboard/member/progress/inbody/${scanId}/edit`
+              `/dashboard/member/composition/inbody/${scanId}/edit`
             }
           />
         </CardContent>

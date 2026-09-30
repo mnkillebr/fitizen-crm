@@ -3,7 +3,7 @@ import {
   CalendarBlankIcon,
   CaretLeftIcon,
   CaretRightIcon,
-  ChartLineUpIcon,
+  PersonSimpleRunIcon,
   ClockCounterClockwiseIcon,
   PlusIcon,
 } from "@phosphor-icons/react"
@@ -326,7 +326,7 @@ export default function CoachClientDashboard() {
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <ChartLineUpIcon className="size-5 text-primary" />
+              <PersonSimpleRunIcon className="size-5 text-primary" />
               <CardTitle className="mt-2 text-lg">Trends</CardTitle>
               <CardDescription>
                 Track strength, volume, and exertion over time.
@@ -467,7 +467,7 @@ export default function CoachClientDashboard() {
           <div className="flex items-center justify-between gap-4">
             <div>
               <CardTitle className="flex items-center gap-2 text-lg">
-                <ChartLineUpIcon className="size-5 text-primary" />
+                <PersonSimpleRunIcon className="size-5 text-primary" />
                 Scan history
               </CardTitle>
               <CardDescription>
