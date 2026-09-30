@@ -1,8 +1,6 @@
 import { PencilSimpleIcon, TrashIcon } from "@phosphor-icons/react"
-import { Form } from "react-router"
+import { Form, Link } from "react-router"
 
-import { InBodyScanForm } from "~/components/inbody-scan-form"
-import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
 import {
   Table,
@@ -12,14 +10,11 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/ui/table"
-import type { InBodyFormFieldErrors } from "~/lib/inbody-form"
 import type { InBodyScanSelect } from "../../models/inbody.server"
 
 type InBodyScanHistoryProps = {
   scans: InBodyScanSelect[]
-  editingScanId?: string | null
-  fieldErrors?: InBodyFormFieldErrors
-  isSubmitting?: boolean
+  getEditPath: (scanId: string) => string
 }
 
 function formatMetric(value: number, digits = 1) {
@@ -28,9 +23,7 @@ function formatMetric(value: number, digits = 1) {
 
 export function InBodyScanHistory({
   scans,
-  editingScanId,
-  fieldErrors,
-  isSubmitting = false,
+  getEditPath,
 }: InBodyScanHistoryProps) {
   if (scans.length === 0) {
     return (
@@ -44,120 +37,70 @@ export function InBodyScanHistory({
   }
 
   return (
-    <div className="space-y-4">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Date</TableHead>
-            <TableHead>Weight</TableHead>
-            <TableHead>SMM</TableHead>
-            <TableHead>PBF</TableHead>
-            <TableHead>ECW</TableHead>
-            <TableHead>BMR</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {scans.map((scan) => (
-            <TableRow key={scan.id}>
-              <TableCell className="font-medium">
-                {new Date(scan.scannedAt).toLocaleDateString()}
-              </TableCell>
-              <TableCell>{formatMetric(scan.weightLbs)} lbs</TableCell>
-              <TableCell>{formatMetric(scan.skeletalMuscleMassLbs)} lbs</TableCell>
-              <TableCell>{formatMetric(scan.percentBodyFat)}%</TableCell>
-              <TableCell>
-                {scan.ecwRatio.toLocaleString(undefined, {
-                  minimumFractionDigits: 3,
-                  maximumFractionDigits: 3,
-                })}
-              </TableCell>
-              <TableCell>
-                {formatMetric(scan.basalMetabolicRate, 0)} kcal
-              </TableCell>
-              <TableCell>
-                <div className="flex justify-end gap-2">
-                  <Form method="post">
-                    <input type="hidden" name="intent" value="edit-scan" />
-                    <input type="hidden" name="scanId" value={scan.id} />
-                    <Button type="submit" variant="outline" size="sm">
-                      <PencilSimpleIcon />
-                      Edit
-                    </Button>
-                  </Form>
-                  <Form method="post">
-                    <input type="hidden" name="intent" value="delete-scan" />
-                    <input type="hidden" name="scanId" value={scan.id} />
-                    <Button
-                      type="submit"
-                      variant="outline"
-                      size="sm"
-                      onClick={(event) => {
-                        if (
-                          !window.confirm(
-                            "Delete this InBody scan? This cannot be undone."
-                          )
-                        ) {
-                          event.preventDefault()
-                        }
-                      }}
-                    >
-                      <TrashIcon />
-                      Delete
-                    </Button>
-                  </Form>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-
-      {editingScanId
-        ? (() => {
-            const editingScan = scans.find((scan) => scan.id === editingScanId)
-            if (!editingScan) {
-              return null
-            }
-
-            return (
-              <div className="rounded-lg border bg-muted/10 p-4">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="font-medium">Edit scan</p>
-                    <p className="text-sm text-muted-foreground">
-                      Update values from{" "}
-                      {new Date(editingScan.scannedAt).toLocaleDateString()}.
-                    </p>
-                  </div>
-                  <Badge variant="secondary">Editing</Badge>
-                </div>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Date</TableHead>
+          <TableHead>Weight</TableHead>
+          <TableHead>SMM</TableHead>
+          <TableHead>PBF</TableHead>
+          <TableHead>ECW</TableHead>
+          <TableHead>BMR</TableHead>
+          <TableHead className="text-right">Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {scans.map((scan) => (
+          <TableRow key={scan.id}>
+            <TableCell className="font-medium">
+              {new Date(scan.scannedAt).toLocaleDateString()}
+            </TableCell>
+            <TableCell>{formatMetric(scan.weightLbs)} lbs</TableCell>
+            <TableCell>{formatMetric(scan.skeletalMuscleMassLbs)} lbs</TableCell>
+            <TableCell>{formatMetric(scan.percentBodyFat)}%</TableCell>
+            <TableCell>
+              {scan.ecwRatio.toLocaleString(undefined, {
+                minimumFractionDigits: 3,
+                maximumFractionDigits: 3,
+              })}
+            </TableCell>
+            <TableCell>
+              {formatMetric(scan.basalMetabolicRate, 0)} kcal
+            </TableCell>
+            <TableCell>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" size="sm" asChild>
+                  <Link to={getEditPath(scan.id)}>
+                    <PencilSimpleIcon />
+                    Edit
+                  </Link>
+                </Button>
                 <Form method="post">
-                  <input type="hidden" name="scanId" value={editingScan.id} />
-                  <InBodyScanForm
-                    defaultValues={editingScan}
-                    fieldErrors={fieldErrors}
-                    submitLabel="Save changes"
-                    submitIntent="update-scan"
-                    isSubmitting={isSubmitting}
-                    cancelSlot={
-                      <Button
-                        type="submit"
-                        name="intent"
-                        value="cancel-edit"
-                        variant="outline"
-                        disabled={isSubmitting}
-                        formNoValidate
-                      >
-                        Cancel
-                      </Button>
-                    }
-                  />
+                  <input type="hidden" name="intent" value="delete-scan" />
+                  <input type="hidden" name="scanId" value={scan.id} />
+                  <Button
+                    type="submit"
+                    variant="outline"
+                    size="sm"
+                    onClick={(event) => {
+                      if (
+                        !window.confirm(
+                          "Delete this InBody scan? This cannot be undone."
+                        )
+                      ) {
+                        event.preventDefault()
+                      }
+                    }}
+                  >
+                    <TrashIcon />
+                    Delete
+                  </Button>
                 </Form>
               </div>
-            )
-          })()
-        : null}
-    </div>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   )
 }
