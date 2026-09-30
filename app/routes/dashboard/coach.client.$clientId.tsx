@@ -9,17 +9,14 @@ import {
 } from "@phosphor-icons/react"
 import { lazy, Suspense, useState } from "react"
 import {
-  Form,
   Link,
   redirect,
   useActionData,
   useLoaderData,
-  useNavigation,
 } from "react-router"
 
 import type { Route } from "./+types/coach.client.$clientId"
 import type { ChartConfig, TrendChartSeries } from "~/components/trend-chart"
-import { InBodyScanForm } from "~/components/inbody-scan-form"
 import { InBodyScanHistory } from "~/components/inbody-scan-history"
 import { InBodyTrends } from "~/components/inbody-trends"
 import { Badge } from "~/components/ui/badge"
@@ -32,21 +29,14 @@ import {
   CardTitle,
 } from "~/components/ui/card"
 import { requireApprovedCoach } from "~/lib/auth.server"
-import {
-  getInBodyFormFieldErrors,
-  parseInBodyFormData,
-  type InBodyFormFieldErrors,
-} from "~/lib/inbody-form"
 import { workoutStyleLabels } from "~/lib/workout-builder"
 import { workoutStatusLabels } from "~/lib/workout-log-form"
 import { calculateVolumeLifted, cn } from "~/lib/utils"
 import { getCoachClientById } from "../../../models/client.server"
 import { getExerciseLogEntries } from "../../../models/exercise.server"
 import {
-  createCoachInBodyScan,
   deleteCoachInBodyScan,
   getCoachInBodyScansForMember,
-  updateCoachInBodyScan,
 } from "../../../models/inbody.server"
 import {
   getPreviousCompletedLogForClient,
@@ -74,9 +64,7 @@ type TrendSlide = {
 
 type ActionData =
   | {
-      fieldErrors?: InBodyFormFieldErrors
       formError?: string
-      editingScanId?: string | null
     }
   | null
 
@@ -134,18 +122,6 @@ export async function action({ request, params }: Route.ActionArgs) {
   const intent = formData.get("intent")?.toString()
   const clientUrl = `/dashboard/coach/client/${params.clientId}`
 
-  if (intent === "edit-scan") {
-    const scanId = formData.get("scanId")?.toString()
-    if (!scanId) {
-      return { formError: "Scan not found." } satisfies ActionData
-    }
-    return { editingScanId: scanId } satisfies ActionData
-  }
-
-  if (intent === "cancel-edit") {
-    return { editingScanId: null } satisfies ActionData
-  }
-
   if (intent === "delete-scan") {
     const scanId = formData.get("scanId")?.toString()
     if (!scanId) {
@@ -160,49 +136,6 @@ export async function action({ request, params }: Route.ActionArgs) {
     throw redirect(clientUrl)
   }
 
-  if (intent === "create-scan" || intent === "update-scan") {
-    const parsed = parseInBodyFormData(formData)
-    if (!parsed.success) {
-      return {
-        fieldErrors: getInBodyFormFieldErrors(parsed.error),
-        editingScanId:
-          intent === "update-scan"
-            ? formData.get("scanId")?.toString() ?? null
-            : null,
-      } satisfies ActionData
-    }
-
-    if (intent === "create-scan") {
-      const created = await createCoachInBodyScan(
-        user.id,
-        params.clientId,
-        user.id,
-        parsed.data
-      )
-      if (!created) {
-        return { formError: "Unable to save this scan." } satisfies ActionData
-      }
-      throw redirect(clientUrl)
-    }
-
-    const scanId = formData.get("scanId")?.toString()
-    if (!scanId) {
-      return { formError: "Scan not found." } satisfies ActionData
-    }
-
-    const updated = await updateCoachInBodyScan(
-      user.id,
-      params.clientId,
-      scanId,
-      parsed.data
-    )
-    if (!updated) {
-      return { formError: "Unable to update this scan." } satisfies ActionData
-    }
-
-    throw redirect(clientUrl)
-  }
-
   return null
 }
 
@@ -210,12 +143,7 @@ export default function CoachClientDashboard() {
   const { client, upcomingWorkout, previousWorkout, volumeLifted, inBodyScans } =
     useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
-  const navigation = useNavigation()
-  const isSubmitting = navigation.state === "submitting"
   const [trendIndex, setTrendIndex] = useState(0)
-  const [showCreateForm, setShowCreateForm] = useState(inBodyScans.length === 0)
-
-  const editingScanId = actionData?.editingScanId ?? null
 
   const volumeChartData = volumeLifted.map((point) => ({
     date: formatChartDate(point.date),
@@ -521,56 +449,18 @@ export default function CoachClientDashboard() {
             Log and track body composition scans for {client.name}.
           </p>
         </div>
-        {!showCreateForm && !editingScanId ? (
-          <Button type="button" onClick={() => setShowCreateForm(true)}>
+        <Button asChild>
+          <Link to={`/dashboard/coach/client/${client.id}/inbody/new`}>
             <PlusIcon />
             Log scan
-          </Button>
-        ) : null}
+          </Link>
+        </Button>
       </div>
 
       <InBodyTrends
         scans={inBodyScans}
         description={`Body composition trends for ${client.name}.`}
       />
-
-      {showCreateForm && !editingScanId ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <PlusIcon className="size-5 text-primary" />
-              Log InBody scan
-            </CardTitle>
-            <CardDescription>
-              Enter values from {client.name}&apos;s InBody report.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form method="post">
-              <InBodyScanForm
-                fieldErrors={
-                  !editingScanId ? actionData?.fieldErrors : undefined
-                }
-                submitLabel="Save scan"
-                submitIntent="create-scan"
-                isSubmitting={isSubmitting}
-                cancelSlot={
-                  inBodyScans.length > 0 ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={isSubmitting}
-                      onClick={() => setShowCreateForm(false)}
-                    >
-                      Cancel
-                    </Button>
-                  ) : null
-                }
-              />
-            </Form>
-          </CardContent>
-        </Card>
-      ) : null}
 
       <Card>
         <CardHeader>
@@ -590,9 +480,9 @@ export default function CoachClientDashboard() {
         <CardContent>
           <InBodyScanHistory
             scans={inBodyScans}
-            editingScanId={editingScanId}
-            fieldErrors={editingScanId ? actionData?.fieldErrors : undefined}
-            isSubmitting={isSubmitting}
+            getEditPath={(scanId) =>
+              `/dashboard/coach/client/${client.id}/inbody/${scanId}/edit`
+            }
           />
         </CardContent>
       </Card>
