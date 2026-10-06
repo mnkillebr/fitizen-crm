@@ -24,12 +24,24 @@ export type TrendChartSeries = {
 
 export type TrendChartProps = {
   config: ChartConfig
-  data: Array<Record<string, string | number>>
+  data: Array<Record<string, string | number | null>>
   xAxisKey: string
   series: TrendChartSeries[]
   className?: string
   emptyMessage?: string
   tickFormatter?: (value: string | number) => string
+  showChangePercent?: boolean
+}
+
+function formatChangePercent(changePercent: unknown) {
+  if (typeof changePercent !== "number" || !Number.isFinite(changePercent)) {
+    return "—"
+  }
+
+  const sign = changePercent > 0 ? "+" : ""
+  return `${sign}${changePercent.toLocaleString(undefined, {
+    maximumFractionDigits: 1,
+  })}%`
 }
 
 export function TrendChart({
@@ -40,6 +52,7 @@ export function TrendChart({
   className,
   emptyMessage = "No data yet",
   tickFormatter,
+  showChangePercent = false,
 }: TrendChartProps) {
   if (data.length === 0) {
     return (
@@ -75,7 +88,35 @@ export function TrendChart({
         />
         <ChartTooltip
           cursor={false}
-          content={<ChartTooltipContent indicator="line" />}
+          content={
+            <ChartTooltipContent
+              indicator="line"
+              formatter={
+                showChangePercent
+                  ? (value, name, item) => {
+                      const label =
+                        config[String(name)]?.label ?? String(name)
+                      const formattedValue =
+                        typeof value === "number"
+                          ? value.toLocaleString()
+                          : String(value ?? "—")
+                      const changeLabel = formatChangePercent(
+                        item.payload?.changePercent
+                      )
+
+                      return (
+                        <div className="flex flex-1 items-center justify-between gap-3 leading-none">
+                          <span className="text-muted-foreground">{label}</span>
+                          <span className="font-mono font-medium text-foreground tabular-nums">
+                            {formattedValue} · {changeLabel}
+                          </span>
+                        </div>
+                      )
+                    }
+                  : undefined
+              }
+            />
+          }
         />
         {series.map((item) => (
           <Line
