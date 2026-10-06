@@ -79,22 +79,47 @@ export function calculateVolumeDuration(logEntries: ExerciseLogVolumePoint[]): G
   );
 }
 
-/** Epley formula: weight × (1 + reps / 30). */
+/** Percent of 1RM represented by a given rep count (1–20). */
+const ONE_REP_MAX_PERCENT_BY_REPS: Record<number, number> = {
+  1: 1,
+  2: 0.97,
+  3: 0.94,
+  4: 0.92,
+  5: 0.89,
+  6: 0.86,
+  7: 0.83,
+  8: 0.81,
+  9: 0.78,
+  10: 0.75,
+  11: 0.73,
+  12: 0.71,
+  13: 0.7,
+  14: 0.68,
+  15: 0.67,
+  16: 0.65,
+  17: 0.64,
+  18: 0.63,
+  19: 0.61,
+  20: 0.6,
+}
+
+/** Estimate 1RM from load ÷ % of max for that rep count (e.g. 185×10 @ 75% → 185 / 0.75). */
 export function estimateOneRepMax(weight: number, reps: number) {
-  if (reps <= 0 || weight <= 0) {
+  if (!Number.isInteger(reps) || reps <= 0 || weight <= 0) {
     return null
   }
 
-  if (reps === 1) {
-    return weight
+  const percentOfMax = ONE_REP_MAX_PERCENT_BY_REPS[reps]
+  if (percentOfMax == null) {
+    return null
   }
 
-  return weight * (1 + reps / 30)
+  return weight / percentOfMax
 }
 
 /**
  * Per completed session: take the heaviest set (max actualWeight), use that set's
- * actualReps with Epley. Ties break toward higher reps.
+ * actualReps with the percent-based 1RM table. Ties break toward higher reps.
  */
 export function calculateEstimatedOneRepMax(
   logEntries: ExerciseLogVolumePoint[]
