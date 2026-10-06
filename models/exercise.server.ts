@@ -122,6 +122,29 @@ export function getExercises(filters?: { createdById?: string; search?: string }
   return query
 }
 
+export type LoggedExerciseOption = {
+  id: string
+  name: string
+}
+
+/** Distinct exercises the member has logged in completed workouts. */
+export function getLoggedExercisesForMember(
+  memberId: string
+): Promise<LoggedExerciseOption[]> {
+  return db
+    .selectDistinct({
+      id: Exercise.id,
+      name: Exercise.name,
+    })
+    .from(WorkoutLogEntry)
+    .innerJoin(WorkoutLog, eq(WorkoutLogEntry.workoutLogId, WorkoutLog.id))
+    .innerJoin(Exercise, eq(WorkoutLogEntry.exerciseId, Exercise.id))
+    .where(
+      and(eq(WorkoutLog.memberId, memberId), eq(WorkoutLog.status, "completed"))
+    )
+    .orderBy(asc(Exercise.name))
+}
+
 /**
  * Workout log entries for an exercise, ordered by session date.
  * Use `actualReps` / `actualWeight` for volume lifted (sets × reps × load)
