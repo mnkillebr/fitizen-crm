@@ -72,22 +72,22 @@ const metricDefs: Record<
   }
 > = {
   volume: {
-    description: "Volume over time",
-    metricLabel: "Latest volume",
+    description: "Volume load over time",
+    metricLabel: "Latest volume lifted",
     seriesKey: "volume",
-    chartLabel: "Volume (lbs)",
-    emptyMessage: "No volume logged yet",
-    emptyValue: "— lbs",
-    format: (value) => `${Math.round(value).toLocaleString()} lbs`,
+    chartLabel: "Total Volume Lifted (load x sets x reps)",
+    emptyMessage: "No load volume logged yet",
+    emptyValue: "—",
+    format: (value) => `${Math.round(value).toLocaleString()}`,
   },
   duration: {
-    description: "Volume × duration over time",
-    metricLabel: "Latest volume×duration",
+    description: "Volume duration over time",
+    metricLabel: "Latest volume duration",
     seriesKey: "duration",
-    chartLabel: "Volume×duration (lbs·s)",
+    chartLabel: "TotalVolume Duration (load x sets xduration)",
     emptyMessage: "No duration volume logged yet",
     emptyValue: "—",
-    format: (value) => `${Math.round(value).toLocaleString()} lbs·s`,
+    format: (value) => `${Math.round(value).toLocaleString()}`,
   },
   e1rm: {
     description: "Estimated maximal strength over time",
@@ -255,6 +255,6 @@ export const strengthMetricOptions: Array<{
   label: string
 }> = [
   { value: "volume", label: "Volume lifted" },
-  { value: "duration", label: "Volume × duration" },
+  { value: "duration", label: "Volume duration" },
   { value: "e1rm", label: "Est. 1RM" },
 ]

@@ -37,6 +37,8 @@ export function calculateVolumeLifted(logEntries: ExerciseLogVolumePoint[]): Gro
       return acc;
     }
 
+    // Bodyweight / unloaded lifts: treat missing or zero load as a unit multiplier.
+    const weight = actualWeight != null && actualWeight > 0 ? actualWeight : 1
     const date = toDate(completedAt)
     const dateKey = date.toISOString();
 
@@ -44,7 +46,7 @@ export function calculateVolumeLifted(logEntries: ExerciseLogVolumePoint[]): Gro
       acc[dateKey] = { date, exerciseName, totalVolume: 0 };
     }
 
-    acc[dateKey].totalVolume += (actualReps ?? 0) * (actualWeight ?? 0);
+    acc[dateKey].totalVolume += (actualReps ?? 0) * weight;
 
     return acc;
   }, {});
@@ -58,10 +60,12 @@ export function calculateVolumeDuration(logEntries: ExerciseLogVolumePoint[]): G
   const grouped = logEntries.reduce<Record<string, GroupedVolumeDuration>>((acc, item) => {
     const { completedAt, exerciseName, actualDurationSeconds, actualWeight } = item;
 
-    if (!completedAt) {
+    if (!completedAt || actualDurationSeconds == null || actualDurationSeconds <= 0) {
       return acc;
     }
 
+    // Bodyweight / unloaded holds: treat missing or zero load as a unit multiplier.
+    const weight = actualWeight != null && actualWeight > 0 ? actualWeight : 1
     const date = toDate(completedAt)
     const dateKey = date.toISOString();
 
@@ -69,7 +73,7 @@ export function calculateVolumeDuration(logEntries: ExerciseLogVolumePoint[]): G
       acc[dateKey] = { date, exerciseName, totalDuration: 0 };
     }
 
-    acc[dateKey].totalDuration += (actualDurationSeconds ?? 0) * (actualWeight ?? 0);
+    acc[dateKey].totalDuration += actualDurationSeconds * weight;
 
     return acc;
   }, {});
