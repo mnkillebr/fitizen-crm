@@ -63,7 +63,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     throw new Response("Exercise not found", { status: 404 })
   }
 
-  throw redirect("/dashboard/coach/exercises")
+  throw redirect("/dashboard/exercises")
 }
 
 export default function CoachEditExercise() {

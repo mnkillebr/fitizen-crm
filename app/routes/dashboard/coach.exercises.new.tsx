@@ -44,7 +44,7 @@ export async function action({ request }: Route.ActionArgs) {
     equipment: parsed.data.equipment,
   })
 
-  throw redirect("/dashboard/coach/exercises")
+  throw redirect("/dashboard/exercises")
 }
 
 export default function CoachCreateExercise() {
