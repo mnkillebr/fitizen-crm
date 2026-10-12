@@ -69,6 +69,7 @@ export const exerciseEquipmentLabels: Record<ExerciseEquipment, string> = {
   trap_bar: "Trap bar",
   glider: "Glider",
   plyo_box: "Plyo box",
+  landmine: "Landmine",
 }
 
 export const exerciseFormSchema = z.object({

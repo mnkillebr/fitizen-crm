@@ -85,6 +85,7 @@ export const ExerciseEquipment = pgEnum('ExerciseEquipment', [
   'trap_bar',
   'glider',
   'plyo_box',
+  'landmine',
 ])
 
 export type ExercisePlaneOfMotionValue =
