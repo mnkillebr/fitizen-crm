@@ -8,8 +8,9 @@ import {
   WorkoutTemplateBlockExercise,
 } from "../db/schema"
 import type { WorkoutBuilderPayload } from "../app/lib/workout-builder"
+import type { WorkoutLogEntryPayload } from "../app/lib/workout-log-form"
 import { getCoachClientById } from "./client.server"
-import { createWorkout } from "./workout.server"
+import { createWorkout, type WorkoutWithDetails } from "./workout.server"
 
 export type WorkoutTemplateSelect = typeof WorkoutTemplate.$inferSelect
 export type WorkoutTemplateBlockSelect = typeof WorkoutTemplateBlock.$inferSelect
@@ -102,6 +103,92 @@ export async function createWorkoutTemplate(coachId: string, payload: WorkoutBui
 
     return template
   })
+}
+
+function resolveLoggedExerciseId(
+  blockExerciseId: string,
+  plannedExerciseId: string,
+  entries: WorkoutLogEntryPayload[]
+) {
+  const matching = entries.filter(
+    (entry) => entry.blockExerciseId === blockExerciseId
+  )
+
+  if (matching.length === 0) {
+    return plannedExerciseId
+  }
+
+  const counts = new Map<string, { count: number; maxRound: number }>()
+
+  for (const entry of matching) {
+    const current = counts.get(entry.exerciseId) ?? { count: 0, maxRound: 0 }
+    current.count += 1
+    current.maxRound = Math.max(current.maxRound, entry.roundNumber)
+    counts.set(entry.exerciseId, current)
+  }
+
+  let winnerId = plannedExerciseId
+  let winnerCount = -1
+  let winnerMaxRound = -1
+
+  for (const [exerciseId, stats] of counts) {
+    if (
+      stats.count > winnerCount ||
+      (stats.count === winnerCount && stats.maxRound > winnerMaxRound)
+    ) {
+      winnerId = exerciseId
+      winnerCount = stats.count
+      winnerMaxRound = stats.maxRound
+    }
+  }
+
+  return winnerId
+}
+
+/** Snapshot an assigned workout as a template, using majority logged exerciseIds per slot. */
+export async function createWorkoutTemplateFromLoggedWorkout(
+  coachId: string,
+  workout: WorkoutWithDetails,
+  entries: WorkoutLogEntryPayload[],
+  title: string
+) {
+  const payload: WorkoutBuilderPayload = {
+    style: workout.style,
+    title: title.trim() || `${workout.title ?? "Workout"} (modified)`,
+    notes: workout.notes ?? undefined,
+    blocks: workout.blocks.map((block) => ({
+      blockType: block.blockType,
+      orderIndex: block.orderIndex,
+      name: block.name ?? undefined,
+      rounds: block.rounds ?? undefined,
+      restBetweenRoundsSeconds: block.restBetweenRoundsSeconds ?? undefined,
+      workDurationSeconds: block.workDurationSeconds ?? undefined,
+      restDurationSeconds: block.restDurationSeconds ?? undefined,
+      targetDurationSeconds: block.targetDurationSeconds ?? undefined,
+      targetIntensity: block.targetIntensity ?? undefined,
+      notes: block.notes ?? undefined,
+      exercises: block.exercises.map((exercise) => ({
+        exerciseId: resolveLoggedExerciseId(
+          exercise.id,
+          exercise.exerciseId,
+          entries
+        ),
+        orderIndex: exercise.orderIndex,
+        prescriptionMode: exercise.prescriptionMode,
+        targetReps: exercise.targetReps ?? undefined,
+        targetDurationSeconds: exercise.targetDurationSeconds ?? undefined,
+        targetRpe: exercise.targetRpe ?? undefined,
+        targetWeight: exercise.targetWeight ?? undefined,
+        tempo: exercise.tempo ?? undefined,
+        cue1: exercise.cue1 ?? undefined,
+        cue2: exercise.cue2 ?? undefined,
+        cue3: exercise.cue3 ?? undefined,
+        restAfterSeconds: exercise.restAfterSeconds ?? undefined,
+      })),
+    })),
+  }
+
+  return createWorkoutTemplate(coachId, payload)
 }
 
 export function getCoachWorkoutTemplates(coachId: string) {

@@ -88,11 +88,18 @@ export const ExerciseEquipment = pgEnum('ExerciseEquipment', [
   'landmine',
 ])
 
+export const ExerciseSwapReason = pgEnum('ExerciseSwapReason', [
+  'client_needs_regression',
+  'equipment_unavailable',
+  'client_needs_progression',
+])
+
 export type ExercisePlaneOfMotionValue =
   (typeof ExercisePlaneOfMotion.enumValues)[number]
 export type ExerciseSupportValue = (typeof ExerciseSupport.enumValues)[number]
 export type ExerciseMuscleGroupValue = (typeof ExerciseMuscleGroup.enumValues)[number]
 export type ExerciseEquipmentValue = (typeof ExerciseEquipment.enumValues)[number]
+export type ExerciseSwapReasonValue = (typeof ExerciseSwapReason.enumValues)[number]
 
 export const User = pgTable('User', {
 	id: uuid('id').primaryKey().defaultRandom(),
@@ -319,6 +326,11 @@ export const WorkoutLogEntry = pgTable('WorkoutLogEntry', {
   exerciseId: uuid('exerciseId')
     .notNull()
     .references(() => Exercise.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
+  originalExerciseId: uuid('originalExerciseId').references(() => Exercise.id, {
+    onDelete: 'set null',
+    onUpdate: 'cascade',
+  }),
+  swapReason: ExerciseSwapReason('swapReason'),
   roundNumber: integer('roundNumber').notNull().default(1),
   setNumber: integer('setNumber'),
   actualReps: integer('actualReps'),
@@ -518,6 +530,11 @@ export const WorkoutLogEntryRelations = relations(WorkoutLogEntry, ({ one }) => 
   exercise: one(Exercise, {
     fields: [WorkoutLogEntry.exerciseId],
     references: [Exercise.id],
+  }),
+  originalExercise: one(Exercise, {
+    fields: [WorkoutLogEntry.originalExerciseId],
+    references: [Exercise.id],
+    relationName: 'workoutLogEntryOriginalExercise',
   }),
 }));
 

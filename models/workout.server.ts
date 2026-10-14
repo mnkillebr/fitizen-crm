@@ -828,6 +828,8 @@ function mapLogEntries(logId: string, entries: WorkoutLogEntryPayload[]) {
     workoutLogId: logId,
     blockExerciseId: entry.blockExerciseId,
     exerciseId: entry.exerciseId,
+    originalExerciseId: entry.originalExerciseId ?? null,
+    swapReason: entry.swapReason ?? null,
     roundNumber: entry.roundNumber,
     setNumber: entry.setNumber ?? null,
     actualReps: entry.actualReps ?? null,
