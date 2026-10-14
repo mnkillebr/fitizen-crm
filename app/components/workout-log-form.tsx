@@ -1,30 +1,60 @@
-import { MinusIcon, PlusIcon } from "@phosphor-icons/react"
+import { ArrowsLeftRightIcon, MinusIcon, PlusIcon } from "@phosphor-icons/react"
 import { Form } from "react-router"
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "~/components/ui/dialog"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select"
 import { cn } from "~/lib/utils"
 import { workoutBlockTypeLabels } from "~/lib/workout-builder"
 import {
   clampLogInt,
   clampLogRpe,
+  exerciseSwapReasonLabels,
+  exerciseSwapReasonValues,
   formatWeight,
   parseLogIntInput,
   parseWeightInput,
   snapWeight,
+  type ExerciseSwapReasonValue,
   type WorkoutLogEntryPayload,
 } from "~/lib/workout-log-form"
+import type { ExerciseMuscleGroupValue } from "../../db/schema"
 import type {
   WorkoutLogEntrySelect,
   WorkoutWithDetails,
 } from "../../models/workout.server"
 
+export type SwapExerciseOption = {
+  id: string
+  name: string
+  muscleGroup: ExerciseMuscleGroupValue
+}
+
 type LogRow = WorkoutLogEntryPayload & {
   rowKey: string
   exerciseName: string
+  originalExerciseName: string
+  muscleGroup: ExerciseMuscleGroupValue
+  plannedExerciseId: string
+  blockRounds: number
   prescriptionMode: "reps" | "time"
   targetLabel: string
   targetReps: number | null
@@ -33,15 +63,33 @@ type LogRow = WorkoutLogEntryPayload & {
   targetWeight: number | null
 }
 
+type DefaultLogEntry = WorkoutLogEntrySelect & {
+  exercise?: { id: string; name: string }
+}
+
 type WorkoutLogFormProps = {
   workout: WorkoutWithDetails
-  defaultEntries?: WorkoutLogEntrySelect[]
+  defaultEntries?: DefaultLogEntry[]
   defaultNotes?: string | null
   submitLabel?: string
   mode?: "session" | "edit"
   isCompleted?: boolean
   allowEdit?: boolean
   isSubmitting?: boolean
+  allowExerciseSwap?: boolean
+  swapExercises?: SwapExerciseOption[]
+}
+
+type SwapDraft = {
+  rowKey: string
+  blockExerciseId: string
+  roundNumber: number
+  blockRounds: number
+  muscleGroup: ExerciseMuscleGroupValue
+  plannedExerciseId: string
+  currentExerciseId: string
+  originalExerciseId: string
+  originalExerciseName: string
 }
 
 function buildTargetLabel(
@@ -86,13 +134,26 @@ function prescribedValuesForExercise(
 
 function buildInitialRows(
   workout: WorkoutWithDetails,
-  defaultEntries?: WorkoutLogEntrySelect[]
+  defaultEntries?: DefaultLogEntry[],
+  swapExercises: SwapExerciseOption[] = []
 ): LogRow[] {
-  const entryMap = new Map<string, WorkoutLogEntrySelect>()
+  const entryMap = new Map<string, DefaultLogEntry>()
+  const exerciseNameById = new Map(
+    swapExercises.map((exercise) => [exercise.id, exercise.name])
+  )
 
   for (const entry of defaultEntries ?? []) {
     const key = `${entry.blockExerciseId}-${entry.roundNumber}-${entry.setNumber ?? 0}`
     entryMap.set(key, entry)
+    if (entry.exercise) {
+      exerciseNameById.set(entry.exercise.id, entry.exercise.name)
+    }
+  }
+
+  for (const block of workout.blocks) {
+    for (const exercise of block.exercises) {
+      exerciseNameById.set(exercise.exerciseId, exercise.exercise.name)
+    }
   }
 
   const rows: LogRow[] = []
@@ -105,14 +166,37 @@ function buildInitialRows(
         const rowKey = `${exercise.id}-${round}`
         const existing = entryMap.get(`${exercise.id}-${round}-0`)
         const prescribed = prescribedValuesForExercise(exercise)
+        const plannedExerciseId = exercise.exerciseId
+        const originalExerciseId =
+          existing?.originalExerciseId ?? plannedExerciseId
+        const exerciseId = existing?.exerciseId ?? plannedExerciseId
+        const swapReason =
+          (existing?.swapReason as ExerciseSwapReasonValue | null | undefined) ??
+          undefined
+        const exerciseName =
+          exerciseNameById.get(exerciseId) ?? exercise.exercise.name
+        const originalExerciseName =
+          exerciseNameById.get(originalExerciseId) ?? exercise.exercise.name
 
         rows.push({
           rowKey,
           blockExerciseId: exercise.id,
-          exerciseId: exercise.exerciseId,
+          exerciseId,
+          originalExerciseId:
+            swapReason || exerciseId !== plannedExerciseId
+              ? originalExerciseId
+              : undefined,
+          swapReason:
+            swapReason || exerciseId !== plannedExerciseId
+              ? swapReason
+              : undefined,
           roundNumber: round,
           setNumber: existing?.setNumber ?? undefined,
-          exerciseName: exercise.exercise.name,
+          exerciseName,
+          originalExerciseName,
+          muscleGroup: exercise.exercise.muscleGroup,
+          plannedExerciseId,
+          blockRounds: rounds,
           prescriptionMode: exercise.prescriptionMode,
           targetReps: exercise.targetReps,
           targetDurationSeconds: exercise.targetDurationSeconds,
@@ -160,6 +244,13 @@ function prescribedValuesForRow(row: LogRow): Partial<LogRow> {
     actualWeight:
       row.targetWeight != null ? snapWeight(row.targetWeight) : undefined,
   }
+}
+
+function rowHasSwap(row: LogRow) {
+  return Boolean(
+    row.swapReason ||
+      (row.originalExerciseId && row.originalExerciseId !== row.exerciseId)
+  )
 }
 
 type NumericStepperProps = {
@@ -280,13 +371,27 @@ export function WorkoutLogForm({
   isCompleted = false,
   allowEdit = true,
   isSubmitting = false,
+  allowExerciseSwap = false,
+  swapExercises = [],
 }: WorkoutLogFormProps) {
+  const formRef = useRef<HTMLFormElement>(null)
+  const primarySubmitRef = useRef<HTMLButtonElement>(null)
   const [rows, setRows] = useState<LogRow[]>(() =>
-    buildInitialRows(workout, defaultEntries)
+    buildInitialRows(workout, defaultEntries, swapExercises)
   )
   const [notes, setNotes] = useState(defaultNotes ?? "")
   const [rescheduleDate, setRescheduleDate] = useState("")
   const [isEditing, setIsEditing] = useState(!isCompleted && allowEdit)
+  const [saveAsTemplate, setSaveAsTemplate] = useState("0")
+  const [templateTitle, setTemplateTitle] = useState(
+    `${workout.title ?? "Workout"} (modified)`
+  )
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false)
+  const [swapDraft, setSwapDraft] = useState<SwapDraft | null>(null)
+  const [swapExerciseId, setSwapExerciseId] = useState<string>("")
+  const [swapReason, setSwapReason] = useState<ExerciseSwapReasonValue | "">("")
+  const [swapScope, setSwapScope] = useState<"current" | "all">("current")
+
   const isReadOnly = isCompleted && (!allowEdit || !isEditing)
 
   const payloadJson = useMemo(
@@ -296,6 +401,10 @@ export function WorkoutLogForm({
           ({
             rowKey: _rowKey,
             exerciseName: _name,
+            originalExerciseName: _originalName,
+            muscleGroup: _muscleGroup,
+            plannedExerciseId: _planned,
+            blockRounds: _rounds,
             prescriptionMode: _mode,
             targetLabel: _target,
             targetReps: _targetReps,
@@ -330,28 +439,143 @@ export function WorkoutLogForm({
   }
 
   function cancelEditing() {
-    setRows(buildInitialRows(workout, defaultEntries))
+    setRows(buildInitialRows(workout, defaultEntries, swapExercises))
     setNotes(defaultNotes ?? "")
     setIsEditing(false)
   }
 
+  function openSwapDialog(row: LogRow) {
+    setSwapDraft({
+      rowKey: row.rowKey,
+      blockExerciseId: row.blockExerciseId,
+      roundNumber: row.roundNumber,
+      blockRounds: row.blockRounds,
+      muscleGroup: row.muscleGroup,
+      plannedExerciseId: row.plannedExerciseId,
+      currentExerciseId: row.exerciseId,
+      originalExerciseId: row.originalExerciseId ?? row.plannedExerciseId,
+      originalExerciseName: row.originalExerciseName,
+    })
+    setSwapExerciseId("")
+    setSwapReason("")
+    setSwapScope(row.blockRounds > 1 ? "all" : "current")
+  }
+
+  function applySwap() {
+    if (!swapDraft || !swapExerciseId || !swapReason) {
+      return
+    }
+
+    const replacement = swapExercises.find(
+      (exercise) => exercise.id === swapExerciseId
+    )
+    if (!replacement) {
+      return
+    }
+
+    setRows((current) =>
+      current.map((row) => {
+        const matchesRow =
+          swapScope === "all"
+            ? row.blockExerciseId === swapDraft.blockExerciseId
+            : row.rowKey === swapDraft.rowKey
+
+        if (!matchesRow) {
+          return row
+        }
+
+        return {
+          ...row,
+          exerciseId: replacement.id,
+          exerciseName: replacement.name,
+          originalExerciseId: swapDraft.originalExerciseId,
+          originalExerciseName: swapDraft.originalExerciseName,
+          swapReason,
+        }
+      })
+    )
+
+    setSwapDraft(null)
+  }
+
+  function submitPrimary(saveTemplateValue: "0" | "1") {
+    setSaveAsTemplate(saveTemplateValue)
+    queueMicrotask(() => {
+      const input = formRef.current?.elements.namedItem(
+        "saveAsTemplate"
+      ) as HTMLInputElement | null
+      if (input) {
+        input.value = saveTemplateValue
+      }
+      primarySubmitRef.current?.click()
+    })
+  }
+
+  function requestLogSave() {
+    if (allowExerciseSwap && rows.some(rowHasSwap)) {
+      setTemplateTitle(`${workout.title ?? "Workout"} (modified)`)
+      setTemplateDialogOpen(true)
+      return
+    }
+
+    submitPrimary("0")
+  }
+
+  function confirmTemplateChoice(shouldSaveTemplate: boolean) {
+    setTemplateDialogOpen(false)
+    submitPrimary(shouldSaveTemplate ? "1" : "0")
+  }
+
+  const swapCandidates = swapDraft
+    ? swapExercises.filter(
+        (exercise) =>
+          exercise.muscleGroup === swapDraft.muscleGroup &&
+          exercise.id !== swapDraft.currentExerciseId
+      )
+    : []
+
+  const logFields = (
+    <LogFields
+      workout={workout}
+      rows={rows}
+      notes={notes}
+      isReadOnly={isReadOnly}
+      allowExerciseSwap={allowExerciseSwap && !isReadOnly}
+      onNotesChange={setNotes}
+      onRowChange={updateRow}
+      onResetRows={resetRowsToPrescription}
+      onStartEdit={allowEdit ? startEditing : undefined}
+      onSwapExercise={allowExerciseSwap && !isReadOnly ? openSwapDialog : undefined}
+    />
+  )
+
   return (
     <div className="space-y-6">
       {mode === "session" ? (
-        <Form method="post" className="space-y-6">
+        <Form ref={formRef} method="post" className="space-y-6">
           <input type="hidden" name="payload" value={payloadJson} readOnly />
+          <input type="hidden" name="saveAsTemplate" value={saveAsTemplate} readOnly />
+          <input type="hidden" name="templateTitle" value={templateTitle} readOnly />
 
-          <LogFields
-            workout={workout}
-            rows={rows}
-            notes={notes}
-            onNotesChange={setNotes}
-            onRowChange={updateRow}
-            onResetRows={resetRowsToPrescription}
-          />
+          {logFields}
 
           <div className="flex flex-wrap gap-2">
-            <Button type="submit" name="intent" value="complete" disabled={isSubmitting}>
+            <Button
+              ref={primarySubmitRef}
+              type="submit"
+              name="intent"
+              value="complete"
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden
+            >
+              Complete
+            </Button>
+            <Button
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => requestLogSave()}
+            >
               {isSubmitting ? "Saving..." : submitLabel}
             </Button>
             <Button
@@ -391,32 +615,32 @@ export function WorkoutLogForm({
           </div>
         </Form>
       ) : isReadOnly ? (
-        <LogFields
-          workout={workout}
-          rows={rows}
-          notes={notes}
-          isReadOnly
-          onNotesChange={setNotes}
-          onRowChange={updateRow}
-          onResetRows={resetRowsToPrescription}
-          onStartEdit={allowEdit ? startEditing : undefined}
-        />
+        logFields
       ) : (
-        <Form method="post" className="space-y-6">
+        <Form ref={formRef} method="post" className="space-y-6">
           <input type="hidden" name="payload" value={payloadJson} readOnly />
-          <input type="hidden" name="intent" value="update" />
+          <input type="hidden" name="saveAsTemplate" value={saveAsTemplate} readOnly />
+          <input type="hidden" name="templateTitle" value={templateTitle} readOnly />
 
-          <LogFields
-            workout={workout}
-            rows={rows}
-            notes={notes}
-            onNotesChange={setNotes}
-            onRowChange={updateRow}
-            onResetRows={resetRowsToPrescription}
-          />
+          {logFields}
 
           <div className="flex flex-wrap gap-2">
-            <Button type="submit" disabled={isSubmitting}>
+            <Button
+              ref={primarySubmitRef}
+              type="submit"
+              name="intent"
+              value="update"
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden
+            >
+              Update
+            </Button>
+            <Button
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => requestLogSave()}
+            >
               {isSubmitting ? "Saving..." : submitLabel}
             </Button>
             {isCompleted ? (
@@ -454,6 +678,149 @@ export function WorkoutLogForm({
           </div>
         </Form>
       ) : null}
+
+      <Dialog
+        open={swapDraft != null}
+        onOpenChange={(open) => {
+          if (!open) setSwapDraft(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Swap exercise</DialogTitle>
+            <DialogDescription>
+              Choose a replacement in the same muscle group and a reason for the
+              swap.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Replacement exercise</Label>
+              <Select
+                value={swapExerciseId}
+                onValueChange={(value) => setSwapExerciseId(value ?? "")}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select exercise" />
+                </SelectTrigger>
+                <SelectContent>
+                  {swapCandidates.map((exercise) => (
+                    <SelectItem key={exercise.id} value={exercise.id}>
+                      {exercise.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {swapCandidates.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No other exercises available in this muscle group.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Reason</Label>
+              <Select
+                value={swapReason}
+                onValueChange={(value) =>
+                  setSwapReason((value as ExerciseSwapReasonValue | null) ?? "")
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  {exerciseSwapReasonValues.map((reason) => (
+                    <SelectItem key={reason} value={reason}>
+                      {exerciseSwapReasonLabels[reason]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {swapDraft && swapDraft.blockRounds > 1 ? (
+              <div className="space-y-2">
+                <Label>Apply to</Label>
+                <RadioGroup
+                  value={swapScope}
+                  onValueChange={(value) => {
+                    if (value === "current" || value === "all") {
+                      setSwapScope(value)
+                    }
+                  }}
+                  className="gap-3 rounded-md border p-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <RadioGroupItem value="current" id="swap-scope-current" />
+                    <Label htmlFor="swap-scope-current" className="font-normal">
+                      This round only (round {swapDraft.roundNumber})
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <RadioGroupItem value="all" id="swap-scope-all" />
+                    <Label htmlFor="swap-scope-all" className="font-normal">
+                      Every round in this circuit
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setSwapDraft(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={!swapExerciseId || !swapReason || swapCandidates.length === 0}
+              onClick={applySwap}
+            >
+              Swap exercise
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Save modified workout as template?</DialogTitle>
+            <DialogDescription>
+              This session includes exercise swaps. Optionally save a new workout
+              template you can assign later.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="template-title">Template title</Label>
+            <Input
+              id="template-title"
+              value={templateTitle}
+              onChange={(event) => setTemplateTitle(event.target.value)}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => confirmTemplateChoice(false)}
+            >
+              Save log only
+            </Button>
+            <Button
+              type="button"
+              disabled={!templateTitle.trim()}
+              onClick={() => confirmTemplateChoice(true)}
+            >
+              Save log + template
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -463,19 +830,23 @@ function LogFields({
   rows,
   notes,
   isReadOnly = false,
+  allowExerciseSwap = false,
   onNotesChange,
   onRowChange,
   onResetRows,
   onStartEdit,
+  onSwapExercise,
 }: {
   workout: WorkoutWithDetails
   rows: LogRow[]
   notes: string
   isReadOnly?: boolean
+  allowExerciseSwap?: boolean
   onNotesChange: (value: string) => void
   onRowChange: (rowKey: string, updates: Partial<LogRow>) => void
   onResetRows: (rowKeys: string[]) => void
   onStartEdit?: () => void
+  onSwapExercise?: (row: LogRow) => void
 }) {
   return (
     <>
@@ -529,6 +900,7 @@ function LogFields({
             <div className="space-y-3">
               {blockRows.map((row) => {
                 const asPrescribed = rowMatchesPrescription(row)
+                const swapped = rowHasSwap(row)
 
                 return (
                   <div
@@ -540,24 +912,51 @@ function LogFields({
                   >
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium">{row.exerciseName}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-medium">{row.exerciseName}</p>
+                          {swapped ? (
+                            <Badge variant="secondary">Swapped</Badge>
+                          ) : null}
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           Round {row.roundNumber} · {row.targetLabel}
                         </p>
+                        {swapped ? (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            From {row.originalExerciseName}
+                            {row.swapReason
+                              ? ` · ${exerciseSwapReasonLabels[row.swapReason]}`
+                              : ""}
+                          </p>
+                        ) : null}
                       </div>
 
-                      {isReadOnly ? null : (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 shrink-0"
-                          disabled={asPrescribed}
-                          onClick={() => onResetRows([row.rowKey])}
-                        >
-                          As prescribed
-                        </Button>
-                      )}
+                      <div className="flex shrink-0 flex-wrap gap-1">
+                        {allowExerciseSwap && onSwapExercise ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8"
+                            onClick={() => onSwapExercise(row)}
+                          >
+                            <ArrowsLeftRightIcon />
+                            Swap
+                          </Button>
+                        ) : null}
+                        {isReadOnly ? null : (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8"
+                            disabled={asPrescribed}
+                            onClick={() => onResetRows([row.rowKey])}
+                          >
+                            As prescribed
+                          </Button>
+                        )}
+                      </div>
                     </div>
 
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
