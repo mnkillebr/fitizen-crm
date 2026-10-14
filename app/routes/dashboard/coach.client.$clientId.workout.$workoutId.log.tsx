@@ -19,6 +19,8 @@ import { parseWorkoutLogPayload, workoutStatusLabels } from "~/lib/workout-log-f
 import { workoutStyleLabels } from "~/lib/workout-builder"
 import { requireApprovedCoach } from "~/lib/auth.server"
 import { getCoachClientById } from "../../../models/client.server"
+import { getCoachExercises } from "../../../models/exercise.server"
+import { createWorkoutTemplateFromLoggedWorkout } from "../../../models/workout-template.server"
 import {
   cancelWorkoutLog,
   completeWorkoutLog,
@@ -52,11 +54,19 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     throw redirect(`/dashboard/coach/client/${params.clientId}`)
   }
 
-  const activeLogs = await getActiveLogForWorkout(params.workoutId)
+  const [activeLogs, coachExercises] = await Promise.all([
+    getActiveLogForWorkout(params.workoutId),
+    getCoachExercises(user.id),
+  ])
   const log = activeLogs[0] ?? null
+  const swapExercises = coachExercises.map((exercise) => ({
+    id: exercise.id,
+    name: exercise.name,
+    muscleGroup: exercise.muscleGroup,
+  }))
 
   if (!log) {
-    return { client, workout, log: null, entries: [] }
+    return { client, workout, log: null, entries: [], swapExercises }
   }
 
   const logWithEntries = await getWorkoutLogWithEntries(log.id)
@@ -66,6 +76,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     workout,
     log,
     entries: logWithEntries?.entries ?? [],
+    swapExercises,
   }
 }
 
@@ -168,6 +179,23 @@ export async function action({ request, params }: Route.ActionArgs) {
       return { error: "Unable to complete this workout log." }
     }
 
+    const saveAsTemplate = formData.get("saveAsTemplate")?.toString() === "1"
+    const hasSwaps = parsed.data.entries.some(
+      (entry) => entry.swapReason != null || entry.originalExerciseId != null
+    )
+
+    if (saveAsTemplate && hasSwaps) {
+      const templateTitle =
+        formData.get("templateTitle")?.toString().trim() ||
+        `${workout.title ?? "Workout"} (modified)`
+      await createWorkoutTemplateFromLoggedWorkout(
+        user.id,
+        workout,
+        parsed.data.entries,
+        templateTitle
+      )
+    }
+
     throw redirect(dashboardUrl)
   }
 
@@ -175,7 +203,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 }
 
 export default function CoachClientWorkoutLog() {
-  const { client, workout, log, entries } = useLoaderData<typeof loader>()
+  const { client, workout, log, entries, swapExercises } =
+    useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const isSubmitting = navigation.state === "submitting"
@@ -275,6 +304,8 @@ export default function CoachClientWorkoutLog() {
               defaultEntries={entries}
               defaultNotes={log.notes}
               isSubmitting={isSubmitting}
+              allowExerciseSwap
+              swapExercises={swapExercises}
             />
           )}
         </CardContent>

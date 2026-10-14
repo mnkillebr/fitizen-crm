@@ -16,6 +16,8 @@ import { parseWorkoutLogPayload, workoutLogStatusLabels } from "~/lib/workout-lo
 import { workoutStyleLabels } from "~/lib/workout-builder"
 import { requireApprovedCoach } from "~/lib/auth.server"
 import { getCoachClientById } from "../../../models/client.server"
+import { getCoachExercises } from "../../../models/exercise.server"
+import { createWorkoutTemplateFromLoggedWorkout } from "../../../models/workout-template.server"
 import {
   getCoachWorkoutForClient,
   getCoachWorkoutLog,
@@ -47,7 +49,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     throw new Response("Workout log not found", { status: 404 })
   }
 
-  const logWithEntries = await getWorkoutLogWithEntries(params.logId)
+  const [logWithEntries, coachExercises] = await Promise.all([
+    getWorkoutLogWithEntries(params.logId),
+    getCoachExercises(user.id),
+  ])
   if (!logWithEntries) {
     throw new Response("Workout log not found", { status: 404 })
   }
@@ -60,7 +65,13 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     throw new Response("Workout not found", { status: 404 })
   }
 
-  return { client, workout, log: logWithEntries }
+  const swapExercises = coachExercises.map((exercise) => ({
+    id: exercise.id,
+    name: exercise.name,
+    muscleGroup: exercise.muscleGroup,
+  }))
+
+  return { client, workout, log: logWithEntries, swapExercises }
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -97,11 +108,35 @@ export async function action({ request, params }: Route.ActionArgs) {
     return { error: "Unable to update this workout log." }
   }
 
+  const saveAsTemplate = formData.get("saveAsTemplate")?.toString() === "1"
+  const hasSwaps = parsed.data.entries.some(
+    (entry) => entry.swapReason != null || entry.originalExerciseId != null
+  )
+
+  if (saveAsTemplate && hasSwaps) {
+    const log = await getCoachWorkoutLog(user.id, params.clientId, params.logId)
+    const workout = log?.workoutId
+      ? await getCoachWorkoutForClient(user.id, params.clientId, log.workoutId)
+      : null
+
+    if (workout) {
+      const templateTitle =
+        formData.get("templateTitle")?.toString().trim() ||
+        `${workout.title ?? "Workout"} (modified)`
+      await createWorkoutTemplateFromLoggedWorkout(
+        user.id,
+        workout,
+        parsed.data.entries,
+        templateTitle
+      )
+    }
+  }
+
   throw redirect(`/dashboard/coach/client/${params.clientId}/workout-log/${params.logId}`)
 }
 
 export default function CoachClientWorkoutLogReview() {
-  const { client, workout, log } = useLoaderData<typeof loader>()
+  const { client, workout, log, swapExercises } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const isSubmitting = navigation.state === "submitting"
@@ -157,6 +192,8 @@ export default function CoachClientWorkoutLogReview() {
             isCompleted
             submitLabel="Save changes"
             isSubmitting={isSubmitting}
+            allowExerciseSwap
+            swapExercises={swapExercises}
           />
         </CardContent>
       </Card>
