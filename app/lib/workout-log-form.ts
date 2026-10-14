@@ -1,6 +1,18 @@
 import { z } from "zod"
 
+import { ExerciseSwapReason } from "../../db/schema"
+
 export const LOG_FIELD_MAX = 999
+
+export const exerciseSwapReasonValues = ExerciseSwapReason.enumValues
+
+export type ExerciseSwapReasonValue = (typeof exerciseSwapReasonValues)[number]
+
+export const exerciseSwapReasonLabels: Record<ExerciseSwapReasonValue, string> = {
+  client_needs_regression: "Client needs regression",
+  equipment_unavailable: "Equipment unavailable",
+  client_needs_progression: "Client needs progression",
+}
 
 export function clampLogInt(
   value: number,
@@ -66,6 +78,8 @@ const optionalFloat = z.preprocess(
 export const workoutLogEntrySchema = z.object({
   blockExerciseId: z.string().uuid(),
   exerciseId: z.string().uuid(),
+  originalExerciseId: z.string().uuid().optional(),
+  swapReason: z.enum(exerciseSwapReasonValues).optional(),
   roundNumber: z.number().int().min(1).default(1),
   setNumber: optionalInt,
   actualReps: optionalInt,
