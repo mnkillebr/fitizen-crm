@@ -26,6 +26,7 @@ import {
   completeWorkoutLog,
   getActiveLogForWorkout,
   getCoachWorkoutForClient,
+  getLastLoggedSetsForExercises,
   getWorkoutLogWithEntries,
   markWorkoutNoShow,
   rescheduleWorkout,
@@ -65,18 +66,49 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     muscleGroup: exercise.muscleGroup,
   }))
 
+  const plannedExerciseIds = workout.blocks.flatMap((block) =>
+    block.exercises.map((exercise) => exercise.exerciseId)
+  )
+  // Include full swap catalog so last-logged hints resolve after in-session swaps.
+  const swapExerciseIds = swapExercises.map((exercise) => exercise.id)
+
   if (!log) {
-    return { client, workout, log: null, entries: [], swapExercises }
+    const lastLoggedByExerciseId = await getLastLoggedSetsForExercises(
+      params.clientId,
+      [...plannedExerciseIds, ...swapExerciseIds]
+    )
+
+    return {
+      client,
+      workout,
+      log: null,
+      entries: [],
+      swapExercises,
+      lastLoggedByExerciseId,
+    }
   }
 
   const logWithEntries = await getWorkoutLogWithEntries(log.id)
+  const entries = logWithEntries?.entries ?? []
+  const exerciseIds = [
+    ...new Set([
+      ...plannedExerciseIds,
+      ...swapExerciseIds,
+      ...entries.map((entry) => entry.exerciseId),
+    ]),
+  ]
+  const lastLoggedByExerciseId = await getLastLoggedSetsForExercises(
+    params.clientId,
+    exerciseIds
+  )
 
   return {
     client,
     workout,
     log,
-    entries: logWithEntries?.entries ?? [],
+    entries,
     swapExercises,
+    lastLoggedByExerciseId,
   }
 }
 
@@ -203,7 +235,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 }
 
 export default function CoachClientWorkoutLog() {
-  const { client, workout, log, entries, swapExercises } =
+  const { client, workout, log, entries, swapExercises, lastLoggedByExerciseId } =
     useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
@@ -306,6 +338,7 @@ export default function CoachClientWorkoutLog() {
               isSubmitting={isSubmitting}
               allowExerciseSwap
               swapExercises={swapExercises}
+              lastLoggedByExerciseId={lastLoggedByExerciseId}
             />
           )}
         </CardContent>

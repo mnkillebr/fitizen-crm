@@ -38,6 +38,7 @@ import {
 } from "~/lib/workout-log-form"
 import type { ExerciseMuscleGroupValue } from "../../db/schema"
 import type {
+  LastLoggedSet,
   WorkoutLogEntrySelect,
   WorkoutWithDetails,
 } from "../../models/workout.server"
@@ -78,6 +79,7 @@ type WorkoutLogFormProps = {
   isSubmitting?: boolean
   allowExerciseSwap?: boolean
   swapExercises?: SwapExerciseOption[]
+  lastLoggedByExerciseId?: Record<string, LastLoggedSet[]>
 }
 
 type SwapDraft = {
@@ -253,10 +255,58 @@ function rowHasSwap(row: LogRow) {
   )
 }
 
+function resolveLastLogged(
+  sets: LastLoggedSet[] | undefined,
+  roundNumber: number
+): LastLoggedSet | null {
+  if (!sets?.length) {
+    return null
+  }
+
+  const matchingRounds = sets.filter((set) => set.roundNumber === roundNumber)
+  if (matchingRounds.length > 0) {
+    return matchingRounds[matchingRounds.length - 1] ?? null
+  }
+
+  let fallback = sets[0]!
+  for (const set of sets) {
+    if (set.roundNumber >= fallback.roundNumber) {
+      fallback = set
+    }
+  }
+  return fallback
+}
+
+function formatLastLoggedLabel(
+  values: LastLoggedSet,
+  prescriptionMode: "reps" | "time"
+) {
+  const parts: string[] = []
+
+  if (prescriptionMode === "reps" && values.actualReps != null) {
+    parts.push(`${values.actualReps} reps`)
+  }
+
+  if (prescriptionMode === "time" && values.actualDurationSeconds != null) {
+    parts.push(`${values.actualDurationSeconds}s`)
+  }
+
+  if (values.actualWeight != null) {
+    parts.push(`${formatWeight(values.actualWeight)} lbs`)
+  }
+
+  if (values.actualRpe != null) {
+    parts.push(`RPE ${values.actualRpe}`)
+  }
+
+  return parts.length ? parts.join(" · ") : null
+}
+
 type NumericStepperProps = {
   id?: string
   label: string
   targetHint?: string | null
+  lastHint?: string | null
   value: number | undefined
   onChange: (value: number | undefined) => void
   min?: number
@@ -274,6 +324,7 @@ function NumericStepper({
   id,
   label,
   targetHint,
+  lastHint,
   value,
   onChange,
   min = 0,
@@ -291,14 +342,21 @@ function NumericStepper({
     onChange(clampValue(base + delta))
   }
 
+  const hints = [
+    targetHint ? `Target ${targetHint}` : null,
+    lastHint ? `Last ${lastHint}` : null,
+  ].filter(Boolean)
+
   return (
     <div className="space-y-1.5">
       <div className="flex items-baseline justify-between gap-2">
         <Label htmlFor={id} className="text-xs">
           {label}
         </Label>
-        {targetHint ? (
-          <span className="text-[0.65rem] text-muted-foreground">Target {targetHint}</span>
+        {hints.length > 0 ? (
+          <span className="text-[0.65rem] text-muted-foreground">
+            {hints.join(" · ")}
+          </span>
         ) : null}
       </div>
 
@@ -373,6 +431,7 @@ export function WorkoutLogForm({
   isSubmitting = false,
   allowExerciseSwap = false,
   swapExercises = [],
+  lastLoggedByExerciseId = {},
 }: WorkoutLogFormProps) {
   const formRef = useRef<HTMLFormElement>(null)
   const primarySubmitRef = useRef<HTMLButtonElement>(null)
@@ -541,6 +600,7 @@ export function WorkoutLogForm({
       notes={notes}
       isReadOnly={isReadOnly}
       allowExerciseSwap={allowExerciseSwap && !isReadOnly}
+      lastLoggedByExerciseId={lastLoggedByExerciseId}
       onNotesChange={setNotes}
       onRowChange={updateRow}
       onResetRows={resetRowsToPrescription}
@@ -831,6 +891,7 @@ function LogFields({
   notes,
   isReadOnly = false,
   allowExerciseSwap = false,
+  lastLoggedByExerciseId = {},
   onNotesChange,
   onRowChange,
   onResetRows,
@@ -842,6 +903,7 @@ function LogFields({
   notes: string
   isReadOnly?: boolean
   allowExerciseSwap?: boolean
+  lastLoggedByExerciseId?: Record<string, LastLoggedSet[]>
   onNotesChange: (value: string) => void
   onRowChange: (rowKey: string, updates: Partial<LogRow>) => void
   onResetRows: (rowKeys: string[]) => void
@@ -901,6 +963,13 @@ function LogFields({
               {blockRows.map((row) => {
                 const asPrescribed = rowMatchesPrescription(row)
                 const swapped = rowHasSwap(row)
+                const lastLogged = resolveLastLogged(
+                  lastLoggedByExerciseId[row.exerciseId],
+                  row.roundNumber
+                )
+                const lastLabel = lastLogged
+                  ? formatLastLoggedLabel(lastLogged, row.prescriptionMode)
+                  : null
 
                 return (
                   <div
@@ -921,6 +990,11 @@ function LogFields({
                         <p className="text-xs text-muted-foreground">
                           Round {row.roundNumber} · {row.targetLabel}
                         </p>
+                        {lastLabel ? (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Last · {lastLabel}
+                          </p>
+                        ) : null}
                         {swapped ? (
                           <p className="mt-1 text-xs text-muted-foreground">
                             From {row.originalExerciseName}
@@ -965,6 +1039,11 @@ function LogFields({
                           id={`${row.rowKey}-reps`}
                           label="Reps"
                           targetHint={row.targetReps ? String(row.targetReps) : null}
+                          lastHint={
+                            lastLogged?.actualReps != null
+                              ? String(lastLogged.actualReps)
+                              : null
+                          }
                           value={row.actualReps}
                           onChange={(actualReps) => onRowChange(row.rowKey, { actualReps })}
                           parseInput={(raw) => parseLogIntInput(raw)}
@@ -981,6 +1060,11 @@ function LogFields({
                           targetHint={
                             row.targetDurationSeconds
                               ? String(row.targetDurationSeconds)
+                              : null
+                          }
+                          lastHint={
+                            lastLogged?.actualDurationSeconds != null
+                              ? String(lastLogged.actualDurationSeconds)
                               : null
                           }
                           value={row.actualDurationSeconds}
@@ -1002,6 +1086,11 @@ function LogFields({
                         id={`${row.rowKey}-rpe`}
                         label="RPE"
                         targetHint={row.targetRpe ? String(row.targetRpe) : null}
+                        lastHint={
+                          lastLogged?.actualRpe != null
+                            ? String(lastLogged.actualRpe)
+                            : null
+                        }
                         value={row.actualRpe}
                         onChange={(actualRpe) => onRowChange(row.rowKey, { actualRpe })}
                         min={1}
@@ -1017,6 +1106,11 @@ function LogFields({
                         label="Weight (lbs)"
                         targetHint={
                           row.targetWeight != null ? formatWeight(row.targetWeight) : null
+                        }
+                        lastHint={
+                          lastLogged?.actualWeight != null
+                            ? formatWeight(lastLogged.actualWeight)
+                            : null
                         }
                         value={row.actualWeight}
                         onChange={(actualWeight) => onRowChange(row.rowKey, { actualWeight })}
