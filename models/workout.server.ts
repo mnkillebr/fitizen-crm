@@ -102,6 +102,16 @@ export type ExerciseProgressionPoint = {
   setNumber: number | null
 }
 
+/** One set from a member's most recent completed session for an exercise. */
+export type LastLoggedSet = {
+  completedAt: Date
+  actualReps: number | null
+  actualDurationSeconds: number | null
+  actualWeight: number | null
+  actualRpe: number | null
+  roundNumber: number
+}
+
 export type UpcomingWorkoutForClient = WorkoutSelect & {
   activeLogId: string | null
 }
@@ -474,6 +484,77 @@ export function getExerciseProgression(
       )
     )
     .orderBy(asc(WorkoutLog.completedAt))
+}
+
+/**
+ * For each exerciseId, return all sets from that member's single most recent
+ * completed session that included the exercise (all rounds from that session).
+ */
+export async function getLastLoggedSetsForExercises(
+  memberId: string,
+  exerciseIds: string[]
+): Promise<Record<string, LastLoggedSet[]>> {
+  const uniqueIds = [...new Set(exerciseIds.filter(Boolean))]
+  if (uniqueIds.length === 0) {
+    return {}
+  }
+
+  const rows = await db
+    .select({
+      exerciseId: WorkoutLogEntry.exerciseId,
+      completedAt: WorkoutLog.completedAt,
+      actualWeight: WorkoutLogEntry.actualWeight,
+      actualReps: WorkoutLogEntry.actualReps,
+      actualDurationSeconds: WorkoutLogEntry.actualDurationSeconds,
+      actualRpe: WorkoutLogEntry.actualRpe,
+      roundNumber: WorkoutLogEntry.roundNumber,
+      setNumber: WorkoutLogEntry.setNumber,
+    })
+    .from(WorkoutLogEntry)
+    .innerJoin(WorkoutLog, eq(WorkoutLogEntry.workoutLogId, WorkoutLog.id))
+    .where(
+      and(
+        eq(WorkoutLog.memberId, memberId),
+        inArray(WorkoutLogEntry.exerciseId, uniqueIds),
+        eq(WorkoutLog.status, "completed")
+      )
+    )
+    .orderBy(
+      desc(WorkoutLog.completedAt),
+      asc(WorkoutLogEntry.roundNumber),
+      asc(WorkoutLogEntry.setNumber)
+    )
+
+  const latestCompletedAtByExercise = new Map<string, number>()
+  const result: Record<string, LastLoggedSet[]> = {}
+
+  for (const row of rows) {
+    if (!row.completedAt) {
+      continue
+    }
+
+    const completedAtMs = row.completedAt.getTime()
+    const latestMs = latestCompletedAtByExercise.get(row.exerciseId)
+
+    if (latestMs == null) {
+      latestCompletedAtByExercise.set(row.exerciseId, completedAtMs)
+      result[row.exerciseId] = []
+    } else if (completedAtMs !== latestMs) {
+      // Older session for this exercise — skip (rows are ordered newest-first).
+      continue
+    }
+
+    result[row.exerciseId].push({
+      completedAt: row.completedAt,
+      actualReps: row.actualReps,
+      actualDurationSeconds: row.actualDurationSeconds,
+      actualWeight: row.actualWeight,
+      actualRpe: row.actualRpe,
+      roundNumber: row.roundNumber,
+    })
+  }
+
+  return result
 }
 
 // --- Client dashboard & log lifecycle ---
