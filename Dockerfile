@@ -1,22 +1,28 @@
-FROM node:20-alpine AS development-dependencies-env
+FROM node:20-alpine AS base
+RUN corepack enable && corepack prepare pnpm@10.5.2 --activate
+WORKDIR /app
+
+FROM base AS development-dependencies-env
 COPY . /app
-WORKDIR /app
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
-FROM node:20-alpine AS production-dependencies-env
-COPY ./package.json package-lock.json /app/
-WORKDIR /app
-RUN npm ci --omit=dev
+FROM base AS production-dependencies-env
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml /app/
+RUN pnpm install --frozen-lockfile --prod
 
-FROM node:20-alpine AS build-env
+FROM base AS build-env
 COPY . /app/
 COPY --from=development-dependencies-env /app/node_modules /app/node_modules
-WORKDIR /app
-RUN npm run build
+RUN pnpm run build
 
-FROM node:20-alpine
-COPY ./package.json package-lock.json /app/
+# Ops image: migrations + seed/invite scripts (tsx + full source).
+# Prefer Compose: docker compose run --rm ops pnpm run db:migrate
+FROM development-dependencies-env AS ops
+CMD ["pnpm", "run", "db:migrate"]
+
+# Slim runtime image for the React Router server (default build target).
+FROM base AS app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml /app/
 COPY --from=production-dependencies-env /app/node_modules /app/node_modules
 COPY --from=build-env /app/build /app/build
-WORKDIR /app
-CMD ["npm", "run", "start"]
+CMD ["pnpm", "run", "start"]
