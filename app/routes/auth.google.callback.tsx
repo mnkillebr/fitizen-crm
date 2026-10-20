@@ -4,18 +4,24 @@ import type { Route } from "./+types/auth.google.callback"
 import {
   exchangeGoogleAuthCode,
   verifyGoogleOAuthState,
+  type GoogleUserProfile,
 } from "~/lib/google-oauth.server"
 import {
   setPendingSignup,
 } from "~/lib/invite-session.server"
-import type { GoogleSignInErrorCode } from "~/lib/sign-in"
+import type { GoogleSignInErrorCode, SignInRole } from "~/lib/sign-in"
 import { commitSession, getSession } from "~/lib/sessions"
 import {
   logSignInAttempt,
   validateInviteById,
   type SignInAttemptOutcomeValue,
 } from "../../models/invite.server"
-import { getUserWithEmailAndProfileId } from "../../models/user.server"
+import {
+  appendGoogleProfileToUser,
+  getGoogleProfileByUserId,
+  getUserByEmail,
+  getUserWithEmailAndProfileId,
+} from "../../models/user.server"
 
 function outcomeToError(outcome: SignInAttemptOutcomeValue): GoogleSignInErrorCode {
   switch (outcome) {
@@ -29,6 +35,41 @@ function outcomeToError(outcome: SignInAttemptOutcomeValue): GoogleSignInErrorCo
     default:
       return "account_not_found"
   }
+}
+
+async function createSignedInRedirect(
+  request: Request,
+  user: { id: string; role: SignInRole }
+) {
+  const session = await getSession(request.headers.get("cookie"))
+  session.set("userId", user.id)
+  session.set("role", user.role)
+  session.unset("pendingSignup")
+  session.unset("inviteId")
+  session.unset("inviteRole")
+
+  return redirect("/dashboard", {
+    headers: {
+      "Set-Cookie": await commitSession(session),
+    },
+  })
+}
+
+async function linkGoogleProfileAndSignIn(
+  request: Request,
+  user: { id: string; role: SignInRole },
+  profile: GoogleUserProfile
+) {
+  await appendGoogleProfileToUser({
+    userId: user.id,
+    profileId: profile.id,
+    email: profile.email,
+    name: profile.name,
+    picture: profile.picture,
+    verifiedEmail: profile.verifiedEmail,
+  })
+
+  return createSignedInRedirect(request, user)
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -62,18 +103,29 @@ export async function loader({ request }: Route.LoaderArgs) {
     const existingUser = userData[0]
 
     if (existingUser?.id) {
-      const session = await getSession(request.headers.get("cookie"))
-      session.set("userId", existingUser.id)
-      session.set("role", existingUser.role)
-      session.unset("pendingSignup")
-      session.unset("inviteId")
-      session.unset("inviteRole")
+      return createSignedInRedirect(request, existingUser)
+    }
 
-      return redirect("/dashboard", {
-        headers: {
-          "Set-Cookie": await commitSession(session),
-        },
+    // Seeded users (e.g. admin) exist before any GoogleProfile row.
+    // Link Google on first successful OAuth for that email.
+    const usersByEmail = await getUserByEmail(authResult.profile.email)
+    const userByEmail = usersByEmail[0]
+
+    if (userByEmail?.id) {
+      const existingProfiles = await getGoogleProfileByUserId(userByEmail.id)
+
+      if (existingProfiles.length === 0) {
+        return linkGoogleProfileAndSignIn(request, userByEmail, authResult.profile)
+      }
+
+      await logSignInAttempt({
+        email: authResult.profile.email,
+        googleProfileId: authResult.profile.id,
+        attemptedRole: role,
+        outcome: "no_invite",
       })
+
+      return redirect(`/sign-in?role=${role}&error=account_not_found`)
     }
 
     if (!inviteId) {

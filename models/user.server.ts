@@ -53,6 +53,13 @@ export function appendGoogleProfileToUser(googleProfileWithUserId: GoogleProfile
   return createGoogleProfile(googleProfileWithUserId);
 }
 
+export function getGoogleProfileByUserId(userId: string) {
+  return db
+    .select()
+    .from(GoogleProfile)
+    .where(eq(GoogleProfile.userId, userId));
+}
+
 export function linkMemberToCoach(coachId: string, memberId: string) {
   return db.insert(CoachMember).values({ coachId, memberId }).returning();
 }
