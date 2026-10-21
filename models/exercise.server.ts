@@ -1,4 +1,4 @@
-import { and, asc, eq, ilike } from "drizzle-orm"
+import { and, asc, eq, ilike, or } from "drizzle-orm"
 
 import db from "../db"
 import {
@@ -34,7 +34,14 @@ export type ExerciseFormInput = {
 export type ExerciseUpdate = Partial<
   Pick<
     ExerciseInsert,
-    "name" | "description" | "muscleGroup" | "planeOfMotion" | "support" | "equipment" | "createdById"
+    | "name"
+    | "description"
+    | "muscleGroup"
+    | "planeOfMotion"
+    | "support"
+    | "equipment"
+    | "isSystem"
+    | "createdById"
   >
 >
 
@@ -47,6 +54,11 @@ export type ExerciseLogVolumePoint = {
   actualWeight: number | null
   roundNumber: number
   setNumber: number | null
+}
+
+/** System library exercises plus rows owned by this coach. */
+function coachCatalogCondition(coachId: string) {
+  return or(eq(Exercise.isSystem, true), eq(Exercise.createdById, coachId))
 }
 
 export function createExercise(input: Omit<ExerciseInsert, "id" | "createdAt" | "updatedAt">) {
@@ -69,6 +81,7 @@ export function createCoachExercise(coachId: string, input: ExerciseFormInput) {
     planeOfMotion: input.planeOfMotion,
     support: input.support,
     equipment: input.equipment,
+    isSystem: false,
     createdById: coachId,
   })
 }
@@ -77,15 +90,30 @@ export function getExerciseById(id: string) {
   return db.select().from(Exercise).where(eq(Exercise.id, id))
 }
 
+/** Owned coach exercise only (not system library). Used for edit/delete. */
+export function getOwnedCoachExerciseById(coachId: string, exerciseId: string) {
+  return db
+    .select()
+    .from(Exercise)
+    .where(
+      and(
+        eq(Exercise.id, exerciseId),
+        eq(Exercise.createdById, coachId),
+        eq(Exercise.isSystem, false)
+      )
+    )
+}
+
+/** Any exercise in the coach catalog (system library or owned). */
 export function getCoachExerciseById(coachId: string, exerciseId: string) {
   return db
     .select()
     .from(Exercise)
-    .where(and(eq(Exercise.id, exerciseId), eq(Exercise.createdById, coachId)))
+    .where(and(eq(Exercise.id, exerciseId), coachCatalogCondition(coachId)))
 }
 
 export function getCoachExercises(coachId: string, filters?: { search?: string }) {
-  const conditions = [eq(Exercise.createdById, coachId)]
+  const conditions = [coachCatalogCondition(coachId)]
 
   if (filters?.search) {
     conditions.push(ilike(Exercise.name, `%${filters.search}%`))
@@ -98,11 +126,19 @@ export function getCoachExercises(coachId: string, filters?: { search?: string }
     .orderBy(asc(Exercise.name))
 }
 
-export function getExercises(filters?: { createdById?: string; search?: string }) {
+export function getExercises(filters?: {
+  createdById?: string
+  search?: string
+  isSystem?: boolean
+}) {
   const conditions = []
 
   if (filters?.createdById) {
     conditions.push(eq(Exercise.createdById, filters.createdById))
+  }
+
+  if (filters?.isSystem !== undefined) {
+    conditions.push(eq(Exercise.isSystem, filters.isSystem))
   }
 
   if (filters?.search) {
@@ -193,7 +229,7 @@ export async function updateCoachExercise(
   exerciseId: string,
   input: ExerciseFormInput
 ) {
-  const exercises = await getCoachExerciseById(coachId, exerciseId)
+  const exercises = await getOwnedCoachExerciseById(coachId, exerciseId)
 
   if (!exercises[0]) {
     return null
@@ -215,17 +251,21 @@ export function deleteExercise(id: string) {
 
 export type DeleteExerciseResult =
   | { ok: true; exercise: ExerciseSelect }
-  | { ok: false; reason: "not_found" | "in_use" }
+  | { ok: false; reason: "not_found" | "in_use" | "system" }
 
 export async function deleteCoachExercise(
   coachId: string,
   exerciseId: string
 ): Promise<DeleteExerciseResult> {
-  const exercises = await getCoachExerciseById(coachId, exerciseId)
-  const exercise = exercises[0]
+  const accessible = await getCoachExerciseById(coachId, exerciseId)
+  const exercise = accessible[0]
 
   if (!exercise) {
     return { ok: false, reason: "not_found" }
+  }
+
+  if (exercise.isSystem || exercise.createdById !== coachId) {
+    return { ok: false, reason: "system" }
   }
 
   try {
