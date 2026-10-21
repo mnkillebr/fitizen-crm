@@ -164,6 +164,12 @@ export const Exercise = pgTable('Exercise', {
   muscleGroup: ExerciseMuscleGroup('muscleGroup').notNull(),
   /** Primary equipment used to perform the movement. */
   equipment: ExerciseEquipment('equipment').notNull(),
+  /**
+   * Shared library exercises visible to every coach.
+   * Coach-created rows keep `isSystem = false` and are scoped by `createdById`.
+   */
+  isSystem: boolean('isSystem').notNull().default(false),
+  /** Authoring coach for private catalog rows; null for system library exercises. */
   createdById: uuid('createdById')
     .references(() => User.id, { onDelete: 'set null', onUpdate: 'cascade' }),
   createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
