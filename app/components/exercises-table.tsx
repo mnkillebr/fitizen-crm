@@ -31,7 +31,16 @@ const coreRowModel = getCoreRowModel()
 const columns = [
   columnHelper.accessor("name", {
     header: "Name",
-    cell: (info) => <span className="font-medium">{info.getValue()}</span>,
+    cell: (info) => {
+      const exercise = info.row.original
+
+      return (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium">{info.getValue()}</span>
+          {exercise.isSystem ? <Badge variant="outline">System</Badge> : null}
+        </div>
+      )
+    },
   }),
   columnHelper.accessor("muscleGroup", {
     header: "Muscle group",
@@ -62,6 +71,14 @@ const columns = [
     header: "",
     cell: (info) => {
       const exercise = info.row.original
+
+      if (exercise.isSystem) {
+        return (
+          <div className="text-right text-sm text-muted-foreground">
+            Shared library
+          </div>
+        )
+      }
 
       return (
         <div className="flex justify-end gap-2">
