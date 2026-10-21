@@ -1,0 +1,1 @@
+ALTER TABLE "WorkoutLog" ALTER COLUMN "completedAt" DROP NOT NULL;

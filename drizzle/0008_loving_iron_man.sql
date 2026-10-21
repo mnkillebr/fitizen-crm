@@ -1,0 +1,1 @@
+ALTER TABLE "Exercise" ADD COLUMN "isSystem" boolean DEFAULT false NOT NULL;

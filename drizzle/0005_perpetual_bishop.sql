@@ -1,0 +1,1 @@
+ALTER TABLE "WorkoutLog" ADD COLUMN "memberFeedback" text;
