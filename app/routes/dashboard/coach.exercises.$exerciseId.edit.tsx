@@ -17,13 +17,13 @@ import {
 } from "~/lib/exercise-form"
 import { requireApprovedCoach } from "~/lib/auth.server"
 import {
-  getCoachExerciseById,
+  getOwnedCoachExerciseById,
   updateCoachExercise,
 } from "../../../models/exercise.server"
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const user = await requireApprovedCoach(request)
-  const exercises = await getCoachExerciseById(user.id, params.exerciseId)
+  const exercises = await getOwnedCoachExerciseById(user.id, params.exerciseId)
   const exercise = exercises[0]
 
   if (!exercise) {
@@ -35,7 +35,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
 export async function action({ request, params }: Route.ActionArgs) {
   const user = await requireApprovedCoach(request)
-  const exercises = await getCoachExerciseById(user.id, params.exerciseId)
+  const exercises = await getOwnedCoachExerciseById(user.id, params.exerciseId)
 
   if (!exercises[0]) {
     throw new Response("Exercise not found", { status: 404 })

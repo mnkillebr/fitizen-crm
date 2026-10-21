@@ -47,6 +47,12 @@ export async function action({ request }: Route.ActionArgs) {
       }
     }
 
+    if (result.reason === "system") {
+      return {
+        deleteError: "System library exercises cannot be deleted.",
+      }
+    }
+
     return { deleteError: "Exercise not found." }
   }
 
@@ -105,7 +111,8 @@ export default function CoachExercises() {
                 Exercise catalog
               </CardTitle>
               <CardDescription>
-                Edit or remove exercises you have created for your clients.
+                System library exercises plus movements you have created for
+                your clients.
               </CardDescription>
             </div>
             <Badge variant="secondary">{exercises.length} total</Badge>
