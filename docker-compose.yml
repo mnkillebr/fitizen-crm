@@ -18,23 +18,45 @@ services:
       retries: 10
     networks:
       - internal
+    # No host ports: reach Postgres as hostname `db` on the Compose network.
 
   app:
     build:
       context: .
       target: app
-    ports:
-      - "${APP_PORT:-3000}:3000"
     env_file:
       - .env
     environment:
+      # Override host-style DATABASE_URL from .env; containers use the service name.
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-crm}
     depends_on:
       db:
         condition: service_healthy
     networks:
       - internal
+    # Reachable as app:3000 on the Compose network; public traffic goes through Caddy.
 
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    networks:
+      - internal
+
+  # One-shot tools image. Not started by `docker compose up`.
+  #   docker compose run --rm ops pnpm run db:migrate
+  #   docker compose run --rm ops pnpm run seed:admin -- --email=admin@example.com
+  #   docker compose run --rm ops pnpm run invite:coach -- --adminEmail=… --email=…
   ops:
     build:
       context: .
@@ -57,3 +79,5 @@ networks:
 
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:
