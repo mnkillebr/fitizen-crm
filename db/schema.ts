@@ -3,6 +3,13 @@ import { relations } from 'drizzle-orm';
 
 export const Role = pgEnum('Role', ['coach', 'member'])
 
+export const Sex = pgEnum('Sex', [
+  'male',
+  'female',
+  'other',
+  'prefer_not_to_say',
+])
+
 export const SignInAttemptOutcome = pgEnum('SignInAttemptOutcome', [
   'no_invite',
   'invalid_invite',
@@ -358,6 +365,33 @@ export const CoachMember = pgTable('CoachMember', {
   createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
 });
 
+/** Baseline body metrics collected during member onboarding (1:1 with member User). */
+export const MemberProfile = pgTable('MemberProfile', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('userId')
+    .notNull()
+    .unique()
+    .references(() => User.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+  sex: Sex('sex').notNull(),
+  /** Total height in inches (UI collects feet + inches; 0.1 precision). */
+  heightInches: real('heightInches').notNull(),
+  weightLbs: real('weightLbs').notNull(),
+  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt', { precision: 3 }).notNull(),
+})
+
+/** Free-text S.M.A.R.T. fitness goals for a member (1–3 enforced in app validation). */
+export const FitnessGoal = pgTable('FitnessGoal', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('userId')
+    .notNull()
+    .references(() => User.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+  statement: text('statement').notNull(),
+  orderIndex: integer('orderIndex').notNull(),
+  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt', { precision: 3 }).notNull(),
+})
+
 /**
  * InBody composition scan for a member.
  * Weight and skeletal muscle mass are stored in lbs; BMR in kcal.
@@ -386,6 +420,11 @@ export const UserRelations = relations(User, ({ one, many }) => ({
     fields: [User.id],
     references: [GoogleProfile.userId],
   }),
+  memberProfile: one(MemberProfile, {
+    fields: [User.id],
+    references: [MemberProfile.userId],
+  }),
+  fitnessGoals: many(FitnessGoal),
   coachedMembers: many(CoachMember, { relationName: 'coachMembers' }),
   coachAssignment: one(CoachMember, {
     fields: [User.id],
@@ -402,6 +441,20 @@ export const UserRelations = relations(User, ({ one, many }) => ({
   workoutLogsLogged: many(WorkoutLog, { relationName: 'workoutLogLoggedBy' }),
   inBodyScans: many(InBodyScan, { relationName: 'inBodyScanMember' }),
   inBodyScansRecorded: many(InBodyScan, { relationName: 'inBodyScanRecordedBy' }),
+}));
+
+export const MemberProfileRelations = relations(MemberProfile, ({ one }) => ({
+  user: one(User, {
+    fields: [MemberProfile.userId],
+    references: [User.id],
+  }),
+}));
+
+export const FitnessGoalRelations = relations(FitnessGoal, ({ one }) => ({
+  user: one(User, {
+    fields: [FitnessGoal.userId],
+    references: [User.id],
+  }),
 }));
 
 export const InviteRelations = relations(Invite, ({ one }) => ({
