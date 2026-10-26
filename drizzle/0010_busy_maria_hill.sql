@@ -1,0 +1,1 @@
+ALTER TABLE "MemberProfile" ALTER COLUMN "heightInches" SET DATA TYPE real;
