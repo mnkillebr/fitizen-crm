@@ -4,6 +4,8 @@ export default [
   index("routes/home.tsx"),
   route("sign-in", "routes/sign-in.tsx"),
   route("setup-profile", "routes/setup-profile.tsx"),
+  route("setup-profile/coach", "routes/setup-profile.coach.tsx"),
+  route("setup-profile/member", "routes/setup-profile.member.tsx"),
   route("pending-approval", "routes/pending-approval.tsx"),
   route("invite/:token", "routes/invite.$token.tsx"),
   route("auth/google/callback", "routes/auth.google.callback.tsx"),
