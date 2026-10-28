@@ -5,6 +5,15 @@ import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
 import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select"
+import {
   exerciseEquipmentLabels,
   exerciseEquipmentValues,
   exerciseMuscleGroupLabels,
@@ -15,15 +24,9 @@ import {
   exerciseSupportValues,
 } from "~/lib/exercise-form"
 import { hasActiveExerciseFilters } from "~/lib/exercise-list-params"
-import { cn } from "~/lib/utils"
 import type { CoachExerciseFilters } from "../../models/exercise.server"
 
-const selectClassName = cn(
-  "h-7 w-full min-w-0 rounded-md border border-input bg-input/20 px-2 py-0.5 text-sm outline-none",
-  "transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30",
-  "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
-  "md:text-xs/relaxed dark:bg-input/30"
-)
+const ALL = "all"
 
 type ExercisesFiltersProps = {
   filters: CoachExerciseFilters
@@ -52,70 +55,91 @@ export function ExercisesFilters({ filters }: ExercisesFiltersProps) {
 
         <div className="space-y-1.5">
           <Label htmlFor="exercise-catalog-muscle-group">Muscle group</Label>
-          <select
-            id="exercise-catalog-muscle-group"
+          <Select
             name="muscleGroup"
-            defaultValue={filters.muscleGroup ?? ""}
-            className={selectClassName}
+            defaultValue={filters.muscleGroup ?? ALL}
           >
-            <option value="">All</option>
-            {exerciseMuscleGroupValues.map((value) => (
-              <option key={value} value={value}>
-                {exerciseMuscleGroupLabels[value]}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger
+              id="exercise-catalog-muscle-group"
+              className="w-full"
+            >
+              <SelectValue placeholder="All" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Muscle group</SelectLabel>
+                <SelectItem value={ALL}>All</SelectItem>
+                {exerciseMuscleGroupValues.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {exerciseMuscleGroupLabels[value]}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="exercise-catalog-plane">Plane of motion</Label>
-          <select
-            id="exercise-catalog-plane"
+          <Select
             name="planeOfMotion"
-            defaultValue={filters.planeOfMotion ?? ""}
-            className={selectClassName}
+            defaultValue={filters.planeOfMotion ?? ALL}
           >
-            <option value="">All</option>
-            {exercisePlaneOfMotionValues.map((value) => (
-              <option key={value} value={value}>
-                {exercisePlaneOfMotionLabels[value]}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id="exercise-catalog-plane" className="w-full">
+              <SelectValue placeholder="All" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Plane of motion</SelectLabel>
+                <SelectItem value={ALL}>All</SelectItem>
+                {exercisePlaneOfMotionValues.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {exercisePlaneOfMotionLabels[value]}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="exercise-catalog-equipment">Equipment</Label>
-          <select
-            id="exercise-catalog-equipment"
-            name="equipment"
-            defaultValue={filters.equipment ?? ""}
-            className={selectClassName}
-          >
-            <option value="">All</option>
-            {exerciseEquipmentValues.map((value) => (
-              <option key={value} value={value}>
-                {exerciseEquipmentLabels[value]}
-              </option>
-            ))}
-          </select>
+          <Select name="equipment" defaultValue={filters.equipment ?? ALL}>
+            <SelectTrigger id="exercise-catalog-equipment" className="w-full">
+              <SelectValue placeholder="All" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Equipment</SelectLabel>
+                <SelectItem value={ALL}>All</SelectItem>
+                {exerciseEquipmentValues.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {exerciseEquipmentLabels[value]}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="exercise-catalog-support">Support</Label>
-          <select
-            id="exercise-catalog-support"
-            name="support"
-            defaultValue={filters.support ?? ""}
-            className={selectClassName}
-          >
-            <option value="">All</option>
-            {exerciseSupportValues.map((value) => (
-              <option key={value} value={value}>
-                {exerciseSupportLabels[value]}
-              </option>
-            ))}
-          </select>
+          <Select name="support" defaultValue={filters.support ?? ALL}>
+            <SelectTrigger id="exercise-catalog-support" className="w-full">
+              <SelectValue placeholder="All" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Support</SelectLabel>
+                <SelectItem value={ALL}>All</SelectItem>
+                {exerciseSupportValues.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {exerciseSupportLabels[value]}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
