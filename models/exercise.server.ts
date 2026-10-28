@@ -1,4 +1,4 @@
-import { and, asc, eq, ilike, or } from "drizzle-orm"
+import { and, asc, count, eq, ilike, or, type SQL } from "drizzle-orm"
 
 import db from "../db"
 import {
@@ -61,6 +61,49 @@ function coachCatalogCondition(coachId: string) {
   return or(eq(Exercise.isSystem, true), eq(Exercise.createdById, coachId))
 }
 
+export type CoachExerciseFilters = {
+  search?: string
+  muscleGroup?: ExerciseMuscleGroupValue
+  planeOfMotion?: ExercisePlaneOfMotionValue
+  support?: ExerciseSupportValue
+  equipment?: ExerciseEquipmentValue
+}
+
+export type CoachExerciseListPage = {
+  exercises: ExerciseSelect[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+function coachExerciseWhere(coachId: string, filters?: CoachExerciseFilters) {
+  const conditions: Array<SQL | undefined> = [coachCatalogCondition(coachId)]
+
+  const search = filters?.search?.trim()
+  if (search) {
+    conditions.push(ilike(Exercise.name, `%${search}%`))
+  }
+
+  if (filters?.muscleGroup) {
+    conditions.push(eq(Exercise.muscleGroup, filters.muscleGroup))
+  }
+
+  if (filters?.planeOfMotion) {
+    conditions.push(eq(Exercise.planeOfMotion, filters.planeOfMotion))
+  }
+
+  if (filters?.support) {
+    conditions.push(eq(Exercise.support, filters.support))
+  }
+
+  if (filters?.equipment) {
+    conditions.push(eq(Exercise.equipment, filters.equipment))
+  }
+
+  return and(...conditions)
+}
+
 export function createExercise(input: Omit<ExerciseInsert, "id" | "createdAt" | "updatedAt">) {
   const now = new Date()
 
@@ -112,18 +155,41 @@ export function getCoachExerciseById(coachId: string, exerciseId: string) {
     .where(and(eq(Exercise.id, exerciseId), coachCatalogCondition(coachId)))
 }
 
-export function getCoachExercises(coachId: string, filters?: { search?: string }) {
-  const conditions = [coachCatalogCondition(coachId)]
-
-  if (filters?.search) {
-    conditions.push(ilike(Exercise.name, `%${filters.search}%`))
-  }
-
+export function getCoachExercises(coachId: string, filters?: CoachExerciseFilters) {
   return db
     .select()
     .from(Exercise)
-    .where(and(...conditions))
+    .where(coachExerciseWhere(coachId, filters))
     .orderBy(asc(Exercise.name))
+}
+
+export async function listCoachExercises(
+  coachId: string,
+  filters: CoachExerciseFilters | undefined,
+  options: { page: number; pageSize: number }
+): Promise<CoachExerciseListPage> {
+  const where = coachExerciseWhere(coachId, filters)
+  const pageSize = Math.max(1, options.pageSize)
+
+  const [countRow] = await db
+    .select({ total: count() })
+    .from(Exercise)
+    .where(where)
+
+  const total = countRow?.total ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const page = Math.min(Math.max(1, options.page), totalPages)
+  const offset = (page - 1) * pageSize
+
+  const exercises = await db
+    .select()
+    .from(Exercise)
+    .where(where)
+    .orderBy(asc(Exercise.name))
+    .limit(pageSize)
+    .offset(offset)
+
+  return { exercises, total, page, pageSize, totalPages }
 }
 
 export function getExercises(filters?: {
