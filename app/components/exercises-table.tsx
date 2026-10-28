@@ -115,9 +115,15 @@ const columns = [
 
 type ExercisesTableProps = {
   exercises: ExerciseSelect[]
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
-export function ExercisesTable({ exercises }: ExercisesTableProps) {
+export function ExercisesTable({
+  exercises,
+  emptyTitle = "No exercises yet",
+  emptyDescription = "Create your first exercise to start building workout prescriptions.",
+}: ExercisesTableProps) {
   const table = useReactTable({
     data: exercises,
     columns,
@@ -127,10 +133,8 @@ export function ExercisesTable({ exercises }: ExercisesTableProps) {
   if (exercises.length === 0) {
     return (
       <div className="rounded-lg border border-dashed p-8 text-center">
-        <p className="text-sm font-medium">No exercises yet</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Create your first exercise to start building workout prescriptions.
-        </p>
+        <p className="text-sm font-medium">{emptyTitle}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{emptyDescription}</p>
       </div>
     )
   }

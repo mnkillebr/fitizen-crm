@@ -1,7 +1,14 @@
-import { ArrowLeftIcon, BarbellIcon, PlusIcon } from "@phosphor-icons/react"
+import {
+  ArrowLeftIcon,
+  BarbellIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
+  PlusIcon,
+} from "@phosphor-icons/react"
 import { Link, useActionData, useLoaderData } from "react-router"
 
 import type { Route } from "./+types/coach.exercises"
+import { ExercisesFilters } from "~/components/exercises-filters"
 import { ExercisesTable } from "~/components/exercises-table"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
@@ -13,13 +20,38 @@ import {
   CardTitle,
 } from "~/components/ui/card"
 import { requireApprovedCoach } from "~/lib/auth.server"
-import { deleteCoachExercise, getCoachExercises } from "../../../models/exercise.server"
+import {
+  createExerciseListSearchParams,
+  EXERCISE_LIST_PAGE_SIZE,
+  hasActiveExerciseFilters,
+  parseCoachExerciseListParams,
+} from "~/lib/exercise-list-params"
+import {
+  deleteCoachExercise,
+  listCoachExercises,
+  type CoachExerciseFilters,
+} from "../../../models/exercise.server"
+
+function toExerciseListSearch(
+  filters: CoachExerciseFilters,
+  updates: { page: number }
+) {
+  const params = createExerciseListSearchParams(filters, updates)
+  const value = params.toString()
+  return value ? `?${value}` : ""
+}
 
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await requireApprovedCoach(request)
-  const exercises = await getCoachExercises(user.id)
+  const { filters, page } = parseCoachExerciseListParams(
+    new URL(request.url).searchParams
+  )
+  const result = await listCoachExercises(user.id, filters, {
+    page,
+    pageSize: EXERCISE_LIST_PAGE_SIZE,
+  })
 
-  return { exercises }
+  return { ...result, filters }
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -60,14 +92,40 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function CoachExercises() {
-  const { exercises } = useLoaderData<typeof loader>()
+  const { exercises, total, page, totalPages, filters } =
+    useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
+  const filtersActive = hasActiveExerciseFilters(filters)
+
+  // Empty string is a valid page-1 URL (no query); only null means unavailable.
+  const prevSearch =
+    page > 1
+      ? toExerciseListSearch(filters, { page: page - 1 })
+      : null
+  const nextSearch =
+    page < totalPages
+      ? toExerciseListSearch(filters, { page: page + 1 })
+      : null
+  const canGoPrev = prevSearch !== null
+  const canGoNext = nextSearch !== null
+  const prevTo =
+    prevSearch === null
+      ? null
+      : prevSearch === ""
+        ? "/dashboard/exercises"
+        : { search: prevSearch }
+  const nextTo =
+    nextSearch === null
+      ? null
+      : nextSearch === ""
+        ? "/dashboard/exercises"
+        : { search: nextSearch }
 
   return (
     <div className="space-y-8">
       <div>
         <Button variant="ghost" size="sm" className="-ml-2 mb-4" asChild>
-          <Link to="/dashboard/coach">
+          <Link to="/dashboard">
             <ArrowLeftIcon />
             Back to dashboard
           </Link>
@@ -102,6 +160,8 @@ export default function CoachExercises() {
         </div>
       ) : null}
 
+      <ExercisesFilters filters={filters} />
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between gap-4">
@@ -115,11 +175,69 @@ export default function CoachExercises() {
                 your clients.
               </CardDescription>
             </div>
-            <Badge variant="secondary">{exercises.length} total</Badge>
+            <Badge variant="secondary">
+              {total} {filtersActive ? "matching" : "total"}
+            </Badge>
           </div>
         </CardHeader>
-        <CardContent>
-          <ExercisesTable exercises={exercises} />
+        <CardContent className="space-y-4">
+          <ExercisesTable
+            exercises={exercises}
+            emptyTitle={
+              filtersActive ? "No matching exercises" : "No exercises yet"
+            }
+            emptyDescription={
+              filtersActive
+                ? "Try adjusting or clearing your filters."
+                : "Create your first exercise to start building workout prescriptions."
+            }
+          />
+
+          {totalPages > 1 ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+              <p className="text-sm text-muted-foreground">
+                Page {page} of {totalPages}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!canGoPrev}
+                  asChild={canGoPrev}
+                >
+                  {prevTo ? (
+                    <Link to={prevTo} className="flex items-center gap-2">
+                      <CaretLeftIcon />
+                      Previous
+                    </Link>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <CaretLeftIcon />
+                      Previous
+                    </div>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!canGoNext}
+                  asChild={canGoNext}
+                >
+                  {nextTo ? (
+                    <Link to={nextTo} className="flex items-center gap-2">
+                      Next
+                      <CaretRightIcon />
+                    </Link>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      Next
+                      <CaretRightIcon />
+                    </div>
+                  )}
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     </div>
