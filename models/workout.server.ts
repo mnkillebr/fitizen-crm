@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gte, inArray, or } from "drizzle-orm"
 
 import db from "../db"
+import type { WorkoutBuilderPayload } from "../app/lib/workout-builder"
 import type { WorkoutLogEntryPayload } from "../app/lib/workout-log-form"
 import {
   Exercise,
@@ -10,6 +11,7 @@ import {
   WorkoutLog,
   WorkoutLogEntry,
 } from "../db/schema"
+import { getCoachClientById } from "./client.server"
 
 export type WorkoutInsert = typeof Workout.$inferInsert
 export type WorkoutUpdate = Partial<
@@ -925,7 +927,8 @@ export async function completeWorkoutLog(
   coachId: string,
   logId: string,
   entries: WorkoutLogEntryPayload[],
-  notes?: string
+  notes?: string,
+  completedAt?: Date
 ) {
   const log = await getCoachWorkoutLogById(coachId, logId)
   if (!log || log.status !== "in_progress" || !log.workoutId) {
@@ -933,6 +936,7 @@ export async function completeWorkoutLog(
   }
 
   const now = new Date()
+  const effectiveCompletedAt = completedAt ?? now
 
   return db.transaction(async (tx) => {
     await tx.delete(WorkoutLogEntry).where(eq(WorkoutLogEntry.workoutLogId, logId))
@@ -945,7 +949,8 @@ export async function completeWorkoutLog(
       .update(WorkoutLog)
       .set({
         status: "completed",
-        completedAt: now,
+        startedAt: completedAt ?? log.startedAt,
+        completedAt: effectiveCompletedAt,
         notes: notes ?? null,
         updatedAt: now,
       })
@@ -959,6 +964,84 @@ export async function completeWorkoutLog(
 
     return updatedLog
   })
+}
+
+export type CreateBackfillWorkoutResult =
+  | { ok: true; workoutId: string }
+  | { ok: false; reason: "client_not_found" }
+
+export async function createBackfillWorkoutForClient(
+  coachId: string,
+  memberId: string,
+  payload: WorkoutBuilderPayload,
+  workoutDate: Date
+): Promise<CreateBackfillWorkoutResult> {
+  const client = await getCoachClientById(coachId, memberId)
+
+  if (!client) {
+    return { ok: false, reason: "client_not_found" }
+  }
+
+  const workout = await createWorkout({
+    coachId,
+    memberId,
+    workoutDate,
+    style: payload.style,
+    status: "scheduled",
+    title: payload.title,
+    notes: payload.notes ?? null,
+    blocks: payload.blocks.map((block) => ({
+      blockType: block.blockType,
+      orderIndex: block.orderIndex,
+      name: block.name ?? null,
+      rounds: block.rounds ?? null,
+      restBetweenRoundsSeconds: block.restBetweenRoundsSeconds ?? null,
+      workDurationSeconds: block.workDurationSeconds ?? null,
+      restDurationSeconds: block.restDurationSeconds ?? null,
+      targetDurationSeconds: block.targetDurationSeconds ?? null,
+      targetIntensity: block.targetIntensity ?? null,
+      notes: block.notes ?? null,
+      exercises: block.exercises.map((exercise) => ({
+        exerciseId: exercise.exerciseId,
+        orderIndex: exercise.orderIndex,
+        prescriptionMode: exercise.prescriptionMode,
+        targetReps: exercise.targetReps ?? null,
+        targetDurationSeconds: exercise.targetDurationSeconds ?? null,
+        targetRpe: exercise.targetRpe ?? null,
+        targetWeight: exercise.targetWeight ?? null,
+        tempo: exercise.tempo ?? null,
+        cues: exercise.cues ?? null,
+        accessories: exercise.accessories ?? null,
+        restAfterSeconds: exercise.restAfterSeconds ?? null,
+      })),
+    })),
+  })
+
+  return { ok: true, workoutId: workout.id }
+}
+
+/** Cancel an in-progress backfill log and delete the orphaned workout assignment. */
+export async function abandonBackfillWorkout(
+  coachId: string,
+  memberId: string,
+  workoutId: string
+) {
+  const workout = await getCoachWorkoutForClient(coachId, memberId, workoutId)
+  if (!workout) {
+    return null
+  }
+
+  if (workout.status === "completed" || workout.status === "no_show") {
+    return null
+  }
+
+  const activeLogs = await getActiveLogForWorkout(workoutId)
+  if (activeLogs[0]) {
+    await cancelWorkoutLog(coachId, activeLogs[0].id)
+  }
+
+  await deleteWorkout(workoutId)
+  return { ok: true as const }
 }
 
 async function getCoachWorkoutLogById(coachId: string, logId: string) {
