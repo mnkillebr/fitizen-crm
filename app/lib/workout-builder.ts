@@ -83,9 +83,8 @@ export const builderBlockExerciseSchema = z
     ),
     targetWeight: optionalFloat,
     tempo: optionalString,
-    cue1: optionalString,
-    cue2: optionalString,
-    cue3: optionalString,
+    cues: optionalString,
+    accessories: optionalString,
     restAfterSeconds: optionalInt,
   })
   .superRefine((exercise, ctx) => {

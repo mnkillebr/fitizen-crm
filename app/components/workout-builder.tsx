@@ -124,9 +124,8 @@ function createInitialState(defaultTemplate?: WorkoutTemplateWithDetails): Build
           targetRpe: exercise.targetRpe ?? undefined,
           targetWeight: exercise.targetWeight ?? undefined,
           tempo: exercise.tempo ?? undefined,
-          cue1: exercise.cue1 ?? undefined,
-          cue2: exercise.cue2 ?? undefined,
-          cue3: exercise.cue3 ?? undefined,
+          cues: exercise.cues ?? undefined,
+          accessories: exercise.accessories ?? undefined,
           restAfterSeconds: exercise.restAfterSeconds ?? undefined,
         })),
       })),
@@ -166,9 +165,8 @@ function serializeState(state: BuilderState): WorkoutBuilderPayload {
         targetRpe: exercise.targetRpe,
         targetWeight: exercise.targetWeight,
         tempo: exercise.tempo || undefined,
-        cue1: exercise.cue1 || undefined,
-        cue2: exercise.cue2 || undefined,
-        cue3: exercise.cue3 || undefined,
+        cues: exercise.cues || undefined,
+        accessories: exercise.accessories || undefined,
         restAfterSeconds: exercise.restAfterSeconds,
       })),
     })),
@@ -489,18 +487,20 @@ function ExercisePrescriptionRow({
         </div>
 
         <div className="space-y-1.5 sm:col-span-2">
-          <Label>Cue 1</Label>
+          <Label>Cues</Label>
           <Input
-            value={exercise.cue1 ?? ""}
-            onChange={(event) => onChange({ cue1: event.target.value })}
+            value={exercise.cues ?? ""}
+            onChange={(event) => onChange({ cues: event.target.value })}
+            placeholder="Brace, drive through heels..."
           />
         </div>
 
         <div className="space-y-1.5 sm:col-span-2">
-          <Label>Cue 2</Label>
+          <Label>Accessories</Label>
           <Input
-            value={exercise.cue2 ?? ""}
-            onChange={(event) => onChange({ cue2: event.target.value })}
+            value={exercise.accessories ?? ""}
+            onChange={(event) => onChange({ accessories: event.target.value })}
+            placeholder="Wide grip, V-bar, etc."
           />
         </div>
       </div>

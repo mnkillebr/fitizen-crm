@@ -12,9 +12,8 @@ type PreviewExercise = {
   targetRpe: number | null
   targetWeight: number | null
   tempo: string | null
-  cue1: string | null
-  cue2: string | null
-  cue3: string | null
+  cues: string | null
+  accessories: string | null
   exercise: { name: string }
 }
 
@@ -110,14 +109,14 @@ export function WorkoutPreview({ workout }: WorkoutPreviewProps) {
                   ) : null}
                 </div>
 
-                {[exercise.cue1, exercise.cue2, exercise.cue3].filter(Boolean).length ? (
-                  <ul className="mt-2 list-inside list-disc text-xs text-muted-foreground">
-                    {[exercise.cue1, exercise.cue2, exercise.cue3]
-                      .filter(Boolean)
-                      .map((cue) => (
-                        <li key={cue}>{cue}</li>
-                      ))}
-                  </ul>
+                {exercise.accessories ? (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Accessories: {exercise.accessories}
+                  </p>
+                ) : null}
+
+                {exercise.cues ? (
+                  <p className="mt-1 text-xs text-muted-foreground">{exercise.cues}</p>
                 ) : null}
               </div>
             ))}
