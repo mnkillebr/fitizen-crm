@@ -251,18 +251,34 @@ export default function CoachClientDashboard() {
                   </div>
                   <p className="mt-3 text-xs font-medium text-primary">Review workout</p>
                 </Link>
-                <Button variant="outline" size="sm" asChild>
-                  <Link to={`/dashboard/coach/client/${client.id}/workouts/history`}>
-                    View all
-                  </Link>
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to={`/dashboard/coach/client/${client.id}/workouts/history`}>
+                      View all
+                    </Link>
+                  </Button>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to={`/dashboard/coach/client/${client.id}/workouts/backfill`}>
+                      <PlusIcon />
+                      Log past workout
+                    </Link>
+                  </Button>
+                </div>
               </div>
             ) : (
-              <div className="rounded-md border border-dashed p-6 text-center">
-                <p className="text-sm font-medium">No previous workout</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Logged workouts will appear here after sessions are recorded.
-                </p>
+              <div className="space-y-3 rounded-md border border-dashed p-6 text-center">
+                <div>
+                  <p className="text-sm font-medium">No previous workout</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Logged workouts will appear here after sessions are recorded.
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" asChild>
+                  <Link to={`/dashboard/coach/client/${client.id}/workouts/backfill`}>
+                    <PlusIcon />
+                    Log past workout
+                  </Link>
+                </Button>
               </div>
             )}
           </CardContent>

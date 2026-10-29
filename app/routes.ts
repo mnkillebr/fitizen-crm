@@ -14,6 +14,7 @@ export default [
     index("routes/dashboard/index.tsx"),
     route("coach/clients", "routes/dashboard/coach.clients.tsx"),
     route("coach/client/:clientId/workouts/history", "routes/dashboard/coach.client.$clientId.workouts.history.tsx"),
+    route("coach/client/:clientId/workouts/backfill", "routes/dashboard/coach.client.$clientId.workouts.backfill.tsx"),
     route("coach/client/:clientId/workout/:workoutId/log", "routes/dashboard/coach.client.$clientId.workout.$workoutId.log.tsx"),
     route("coach/client/:clientId/workout-log/:logId", "routes/dashboard/coach.client.$clientId.workout-log.$logId.tsx"),
     route("coach/client/:clientId/inbody/new", "routes/dashboard/coach.client.$clientId.inbody.new.tsx"),

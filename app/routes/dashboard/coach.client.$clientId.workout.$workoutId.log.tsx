@@ -22,6 +22,7 @@ import { getCoachClientById } from "../../../models/client.server"
 import { getCoachExercises } from "../../../models/exercise.server"
 import { createWorkoutTemplateFromLoggedWorkout } from "../../../models/workout-template.server"
 import {
+  abandonBackfillWorkout,
   cancelWorkoutLog,
   completeWorkoutLog,
   getActiveLogForWorkout,
@@ -33,9 +34,14 @@ import {
   startWorkoutLog,
 } from "../../../models/workout.server"
 
+function isBackfillRequest(request: Request) {
+  return new URL(request.url).searchParams.get("backfill") === "1"
+}
+
 export async function loader({ request, params }: Route.LoaderArgs) {
   const user = await requireApprovedCoach(request)
   const client = await getCoachClientById(user.id, params.clientId)
+  const backfill = isBackfillRequest(request)
 
   if (!client) {
     throw new Response("Client not found", { status: 404 })
@@ -55,21 +61,41 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     throw redirect(`/dashboard/coach/client/${params.clientId}`)
   }
 
-  const [activeLogs, coachExercises] = await Promise.all([
-    getActiveLogForWorkout(params.workoutId),
-    getCoachExercises(user.id),
-  ])
-  const log = activeLogs[0] ?? null
+  const existingActiveLogs = await getActiveLogForWorkout(params.workoutId)
+  let log = existingActiveLogs[0] ?? null
+  let workoutForPage = workout
+
+  if (backfill && !log) {
+    const startedLog = await startWorkoutLog(
+      user.id,
+      params.clientId,
+      params.workoutId,
+      user.id
+    )
+
+    if (!startedLog) {
+      throw new Response("Unable to start backfill log", { status: 400 })
+    }
+
+    log = startedLog
+    workoutForPage =
+      (await getCoachWorkoutForClient(
+        user.id,
+        params.clientId,
+        params.workoutId
+      )) ?? workout
+  }
+
+  const coachExercises = await getCoachExercises(user.id)
   const swapExercises = coachExercises.map((exercise) => ({
     id: exercise.id,
     name: exercise.name,
     muscleGroup: exercise.muscleGroup,
   }))
 
-  const plannedExerciseIds = workout.blocks.flatMap((block) =>
+  const plannedExerciseIds = workoutForPage.blocks.flatMap((block) =>
     block.exercises.map((exercise) => exercise.exerciseId)
   )
-  // Include full swap catalog so last-logged hints resolve after in-session swaps.
   const swapExerciseIds = swapExercises.map((exercise) => exercise.id)
 
   if (!log) {
@@ -80,11 +106,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
     return {
       client,
-      workout,
+      workout: workoutForPage,
       log: null,
       entries: [],
       swapExercises,
       lastLoggedByExerciseId,
+      backfill,
     }
   }
 
@@ -104,17 +131,19 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
   return {
     client,
-    workout,
+    workout: workoutForPage,
     log,
     entries,
     swapExercises,
     lastLoggedByExerciseId,
+    backfill,
   }
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
   const user = await requireApprovedCoach(request)
   const client = await getCoachClientById(user.id, params.clientId)
+  const backfill = isBackfillRequest(request)
 
   if (!client) {
     throw new Response("Client not found", { status: 404 })
@@ -133,9 +162,16 @@ export async function action({ request, params }: Route.ActionArgs) {
   const formData = await request.formData()
   const intent = formData.get("intent")?.toString()
   const dashboardUrl = `/dashboard/coach/client/${params.clientId}`
-  const logUrl = `/dashboard/coach/client/${params.clientId}/workout/${params.workoutId}/log`
+  const historyUrl = `/dashboard/coach/client/${params.clientId}/workouts/history`
+  const logUrl = backfill
+    ? `/dashboard/coach/client/${params.clientId}/workout/${params.workoutId}/log?backfill=1`
+    : `/dashboard/coach/client/${params.clientId}/workout/${params.workoutId}/log`
 
   if (intent === "start") {
+    if (backfill) {
+      throw redirect(logUrl)
+    }
+
     const log = await startWorkoutLog(
       user.id,
       params.clientId,
@@ -151,6 +187,10 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   if (intent === "reschedule") {
+    if (backfill) {
+      return { error: "Reschedule is not available while logging a past workout." }
+    }
+
     const workoutDateRaw = formData.get("workoutDate")?.toString()
     if (!workoutDateRaw) {
       return { error: "Workout date is required." }
@@ -176,6 +216,10 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   if (intent === "no-show") {
+    if (backfill) {
+      return { error: "No-show is not available while logging a past workout." }
+    }
+
     await markWorkoutNoShow(user.id, params.clientId, params.workoutId, user.id)
     throw redirect(dashboardUrl)
   }
@@ -188,6 +232,11 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   if (intent === "cancel") {
+    if (backfill) {
+      await abandonBackfillWorkout(user.id, params.clientId, params.workoutId)
+      throw redirect(dashboardUrl)
+    }
+
     await cancelWorkoutLog(user.id, activeLog.id)
     throw redirect(logUrl)
   }
@@ -204,7 +253,8 @@ export async function action({ request, params }: Route.ActionArgs) {
       user.id,
       activeLog.id,
       parsed.data.entries,
-      parsed.data.notes
+      parsed.data.notes,
+      backfill ? new Date(workout.workoutDate) : undefined
     )
 
     if (!result) {
@@ -228,19 +278,26 @@ export async function action({ request, params }: Route.ActionArgs) {
       )
     }
 
-    throw redirect(dashboardUrl)
+    throw redirect(backfill ? historyUrl : dashboardUrl)
   }
 
   return null
 }
 
 export default function CoachClientWorkoutLog() {
-  const { client, workout, log, entries, swapExercises, lastLoggedByExerciseId } =
-    useLoaderData<typeof loader>()
+  const {
+    client,
+    workout,
+    log,
+    entries,
+    swapExercises,
+    lastLoggedByExerciseId,
+    backfill,
+  } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const isSubmitting = navigation.state === "submitting"
-  const isPreview = !log
+  const isPreview = !log && !backfill
 
   return (
     <div className="space-y-8">
@@ -258,14 +315,17 @@ export default function CoachClientWorkoutLog() {
               {workout.title ?? "Workout"}
             </h1>
             <p className="mt-2 text-muted-foreground">
-              {isPreview
-                ? "Review the prescription before starting the session."
-                : "Log actual performance for this session."}
+              {backfill
+                ? "Enter actual performance for this past session."
+                : isPreview
+                  ? "Review the prescription before starting the session."
+                  : "Log actual performance for this session."}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">{workoutStyleLabels[workout.style]}</Badge>
             <Badge variant="secondary">{workoutStatusLabels[workout.status]}</Badge>
+            {backfill ? <Badge variant="outline">Past session</Badge> : null}
           </div>
         </div>
       </div>
@@ -280,11 +340,12 @@ export default function CoachClientWorkoutLog() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <CalendarBlankIcon className="size-5 text-primary" />
-            {isPreview ? "Workout preview" : "Session log"}
+            {backfill ? "Past session log" : isPreview ? "Workout preview" : "Session log"}
           </CardTitle>
           <CardDescription>
-            Scheduled for {new Date(workout.workoutDate).toLocaleDateString()}
-            {!isPreview && log ? (
+            {backfill ? "Completed" : "Scheduled for"}{" "}
+            {new Date(workout.workoutDate).toLocaleDateString()}
+            {!backfill && !isPreview && log ? (
               <> · Started {new Date(log.startedAt).toLocaleString()}</>
             ) : null}
           </CardDescription>
@@ -330,7 +391,7 @@ export default function CoachClientWorkoutLog() {
                 </div>
               </Form>
             </div>
-          ) : (
+          ) : log ? (
             <WorkoutLogForm
               workout={workout}
               defaultEntries={entries}
@@ -339,8 +400,10 @@ export default function CoachClientWorkoutLog() {
               allowExerciseSwap
               swapExercises={swapExercises}
               lastLoggedByExerciseId={lastLoggedByExerciseId}
+              backfillMode={backfill}
+              submitLabel={backfill ? "Save past workout" : "Complete workout"}
             />
-          )}
+          ) : null}
         </CardContent>
       </Card>
     </div>
