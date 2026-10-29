@@ -64,12 +64,22 @@ type BuilderState = {
   blocks: BuilderBlockState[]
 }
 
+type WorkoutDateFieldProps = {
+  label?: string
+  defaultValue?: string
+  required?: boolean
+  error?: string
+  description?: string
+}
+
 type WorkoutBuilderProps = {
   exercises: ExerciseSelect[]
   defaultTemplate?: WorkoutTemplateWithDetails
   fieldErrors?: WorkoutBuilderFieldErrors
   submitLabel: string
   isSubmitting?: boolean
+  /** When set, renders a `workoutDate` input in the details card (outside JSON payload). */
+  workoutDateField?: WorkoutDateFieldProps
 }
 
 function createClientId() {
@@ -514,6 +524,7 @@ export function WorkoutBuilder({
   fieldErrors,
   submitLabel,
   isSubmitting = false,
+  workoutDateField,
 }: WorkoutBuilderProps) {
   const [state, setState] = useState<BuilderState>(() =>
     createInitialState(defaultTemplate)
@@ -696,7 +707,9 @@ export function WorkoutBuilder({
         <CardHeader>
           <CardTitle className="text-lg">Workout details</CardTitle>
           <CardDescription>
-            Choose a style and name your workout template.
+            {workoutDateField
+              ? "Choose a style, completed date, and name this past session."
+              : "Choose a style and name your workout template."}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
@@ -715,6 +728,31 @@ export function WorkoutBuilder({
               <p className="text-xs text-destructive">{fieldErrors.title}</p>
             ) : null}
           </div>
+
+          {workoutDateField ? (
+            <div className="space-y-2">
+              <Label htmlFor="workout-date">
+                {workoutDateField.label ?? "Completed date"}
+              </Label>
+              <Input
+                id="workout-date"
+                name="workoutDate"
+                type="date"
+                required={workoutDateField.required ?? true}
+                defaultValue={workoutDateField.defaultValue}
+                max={new Date().toISOString().slice(0, 10)}
+                aria-invalid={workoutDateField.error ? true : undefined}
+              />
+              {workoutDateField.description ? (
+                <p className="text-xs text-muted-foreground">
+                  {workoutDateField.description}
+                </p>
+              ) : null}
+              {workoutDateField.error ? (
+                <p className="text-xs text-destructive">{workoutDateField.error}</p>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="space-y-2">
             <Label htmlFor="workout-style">Style</Label>

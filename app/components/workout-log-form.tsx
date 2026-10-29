@@ -80,6 +80,8 @@ type WorkoutLogFormProps = {
   allowExerciseSwap?: boolean
   swapExercises?: SwapExerciseOption[]
   lastLoggedByExerciseId?: Record<string, LastLoggedSet[]>
+  /** Hides reschedule / no-show and softens cancel copy for past-session backfill. */
+  backfillMode?: boolean
 }
 
 type SwapDraft = {
@@ -432,6 +434,7 @@ export function WorkoutLogForm({
   allowExerciseSwap = false,
   swapExercises = [],
   lastLoggedByExerciseId = {},
+  backfillMode = false,
 }: WorkoutLogFormProps) {
   const formRef = useRef<HTMLFormElement>(null)
   const primarySubmitRef = useRef<HTMLButtonElement>(null)
@@ -647,31 +650,37 @@ export function WorkoutLogForm({
               onClick={(event) => {
                 if (
                   !window.confirm(
-                    "Cancel this workout session? You can start again from the preview."
+                    backfillMode
+                      ? "Cancel this past workout entry? The draft session will be discarded."
+                      : "Cancel this workout session? You can start again from the preview."
                   )
                 ) {
                   event.preventDefault()
                 }
               }}
             >
-              Cancel log
+              {backfillMode ? "Cancel backfill" : "Cancel log"}
             </Button>
-            <Button
-              type="submit"
-              name="intent"
-              value="no-show"
-              variant="destructive"
-              disabled={isSubmitting}
-              onClick={(event) => {
-                if (
-                  !window.confirm("Mark this session as a no-show? This cannot be undone.")
-                ) {
-                  event.preventDefault()
-                }
-              }}
-            >
-              Mark no-show
-            </Button>
+            {!backfillMode ? (
+              <Button
+                type="submit"
+                name="intent"
+                value="no-show"
+                variant="destructive"
+                disabled={isSubmitting}
+                onClick={(event) => {
+                  if (
+                    !window.confirm(
+                      "Mark this session as a no-show? This cannot be undone."
+                    )
+                  ) {
+                    event.preventDefault()
+                  }
+                }}
+              >
+                Mark no-show
+              </Button>
+            ) : null}
           </div>
         </Form>
       ) : isReadOnly ? (
@@ -717,7 +726,7 @@ export function WorkoutLogForm({
         </Form>
       )}
 
-      {mode === "session" ? (
+      {mode === "session" && !backfillMode ? (
         <Form method="post" className="rounded-md border bg-muted/10 p-4">
           <input type="hidden" name="intent" value="reschedule" />
           <div className="flex flex-wrap items-end gap-3">
