@@ -92,6 +92,13 @@
       "when": 1793200000000,
       "tag": "0012_workout_status",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793201000000,
+      "tag": "0013_workout_log_status",
+      "breakpoints": true
     }
   ]
 }
