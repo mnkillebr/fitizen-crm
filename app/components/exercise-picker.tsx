@@ -32,21 +32,44 @@ type ExercisePickerProps = {
   excludeExerciseIds?: string[]
 }
 
+type PickerFilters = {
+  search: string
+  muscleGroup: string
+  planeOfMotion: string
+  equipment: string
+  support: string
+}
+
 const ALL = "all"
+
+const EMPTY_FILTERS: PickerFilters = {
+  search: "",
+  muscleGroup: "",
+  planeOfMotion: "",
+  equipment: "",
+  support: "",
+}
+
+function hasActivePickerFilters(filters: PickerFilters) {
+  return (
+    filters.search.trim() !== "" ||
+    filters.muscleGroup !== "" ||
+    filters.planeOfMotion !== "" ||
+    filters.equipment !== "" ||
+    filters.support !== ""
+  )
+}
 
 export function ExercisePicker({
   exercises,
   onSelect,
   excludeExerciseIds = [],
 }: ExercisePickerProps) {
-  const [search, setSearch] = useState("")
-  const [muscleGroup, setMuscleGroup] = useState("")
-  const [planeOfMotion, setPlaneOfMotion] = useState("")
-  const [equipment, setEquipment] = useState("")
-  const [support, setSupport] = useState("")
+  const [filters, setFilters] = useState(EMPTY_FILTERS)
+  const showClear = hasActivePickerFilters(filters)
 
   const filteredExercises = useMemo(() => {
-    const query = search.trim().toLowerCase()
+    const query = filters.search.trim().toLowerCase()
     const excluded = new Set(excludeExerciseIds)
 
     return exercises.filter((exercise) => {
@@ -54,19 +77,22 @@ export function ExercisePicker({
         return false
       }
 
-      if (muscleGroup && exercise.muscleGroup !== muscleGroup) {
+      if (filters.muscleGroup && exercise.muscleGroup !== filters.muscleGroup) {
         return false
       }
 
-      if (planeOfMotion && exercise.planeOfMotion !== planeOfMotion) {
+      if (
+        filters.planeOfMotion &&
+        exercise.planeOfMotion !== filters.planeOfMotion
+      ) {
         return false
       }
 
-      if (equipment && exercise.equipment !== equipment) {
+      if (filters.equipment && exercise.equipment !== filters.equipment) {
         return false
       }
 
-      if (support && exercise.support !== support) {
+      if (filters.support && exercise.support !== filters.support) {
         return false
       }
 
@@ -76,13 +102,25 @@ export function ExercisePicker({
 
       return true
     })
-  }, [exercises, excludeExerciseIds, search, muscleGroup, planeOfMotion, equipment, support])
+  }, [exercises, excludeExerciseIds, filters])
 
   return (
     <div className="space-y-4 rounded-lg border bg-muted/10 p-4">
-      <div className="flex items-center gap-2">
-        <MagnifyingGlassIcon className="size-4 text-muted-foreground" />
-        <p className="text-sm font-medium">Add exercise</p>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <MagnifyingGlassIcon className="size-4 text-muted-foreground" />
+          <p className="text-sm font-medium">Add exercise</p>
+        </div>
+        {showClear ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setFilters(EMPTY_FILTERS)}
+          >
+            Clear
+          </Button>
+        ) : null}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -90,8 +128,13 @@ export function ExercisePicker({
           <Label htmlFor="exercise-search">Search</Label>
           <Input
             id="exercise-search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            value={filters.search}
+            onChange={(event) =>
+              setFilters((current) => ({
+                ...current,
+                search: event.target.value,
+              }))
+            }
             placeholder="Search by name..."
           />
         </div>
@@ -99,8 +142,13 @@ export function ExercisePicker({
         <div className="space-y-1.5">
           <Label>Muscle group</Label>
           <Select
-            value={muscleGroup || ALL}
-            onValueChange={(value) => setMuscleGroup(value === ALL ? "" : value)}
+            value={filters.muscleGroup || ALL}
+            onValueChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                muscleGroup: value === ALL ? "" : value,
+              }))
+            }
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="All" />
@@ -122,8 +170,13 @@ export function ExercisePicker({
         <div className="space-y-1.5">
           <Label>Plane of motion</Label>
           <Select
-            value={planeOfMotion || ALL}
-            onValueChange={(value) => setPlaneOfMotion(value === ALL ? "" : value)}
+            value={filters.planeOfMotion || ALL}
+            onValueChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                planeOfMotion: value === ALL ? "" : value,
+              }))
+            }
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="All" />
@@ -145,8 +198,13 @@ export function ExercisePicker({
         <div className="space-y-1.5">
           <Label>Equipment</Label>
           <Select
-            value={equipment || ALL}
-            onValueChange={(value) => setEquipment(value === ALL ? "" : value)}
+            value={filters.equipment || ALL}
+            onValueChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                equipment: value === ALL ? "" : value,
+              }))
+            }
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="All" />
@@ -168,8 +226,13 @@ export function ExercisePicker({
         <div className="space-y-1.5">
           <Label>Support</Label>
           <Select
-            value={support || ALL}
-            onValueChange={(value) => setSupport(value === ALL ? "" : value)}
+            value={filters.support || ALL}
+            onValueChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                support: value === ALL ? "" : value,
+              }))
+            }
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="All" />
