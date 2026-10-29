@@ -243,9 +243,8 @@ export const WorkoutBlockExercise = pgTable('WorkoutBlockExercise', {
   targetRpe: integer('targetRpe'),
   targetWeight: real('targetWeight'),
   tempo: varchar('tempo', { length: 32 }),
-  cue1: text('cue1'),
-  cue2: text('cue2'),
-  cue3: text('cue3'),
+  cues: text('cues'),
+  accessories: text('accessories'),
   restAfterSeconds: integer('restAfterSeconds'),
 })
 
@@ -299,9 +298,8 @@ export const WorkoutTemplateBlockExercise = pgTable('WorkoutTemplateBlockExercis
   targetRpe: integer('targetRpe'),
   targetWeight: real('targetWeight'),
   tempo: varchar('tempo', { length: 32 }),
-  cue1: text('cue1'),
-  cue2: text('cue2'),
-  cue3: text('cue3'),
+  cues: text('cues'),
+  accessories: text('accessories'),
   restAfterSeconds: integer('restAfterSeconds'),
 })
 
