@@ -6,9 +6,10 @@ import {
 
 type PreviewExercise = {
   id: string
-  prescriptionMode: "reps" | "time"
+  prescriptionMode: "reps" | "time" | "distance"
   targetReps: number | null
   targetDurationSeconds: number | null
+  targetDistance: number | null
   targetRpe: number | null
   targetWeight: number | null
   tempo: string | null
@@ -32,9 +33,10 @@ type WorkoutPreviewSource = {
 }
 
 function formatTarget(
-  prescriptionMode: "reps" | "time",
+  prescriptionMode: "reps" | "time" | "distance",
   targetReps: number | null,
   targetDurationSeconds: number | null,
+  targetDistance: number | null,
   targetRpe: number | null,
   targetWeight: number | null
 ) {
@@ -45,7 +47,11 @@ function formatTarget(
   }
 
   if (prescriptionMode === "time" && targetDurationSeconds) {
-    parts.push(`${targetDurationSeconds}s`)
+    parts.push(`${targetDurationSeconds} seconds`)
+  }
+
+  if (prescriptionMode === "distance" && targetDistance) {
+    parts.push(`${targetDistance} yards`)
   }
 
   if (targetRpe) {
@@ -99,6 +105,7 @@ export function WorkoutPreview({ workout }: WorkoutPreviewProps) {
                         exercise.prescriptionMode,
                         exercise.targetReps,
                         exercise.targetDurationSeconds,
+                        exercise.targetDistance,
                         exercise.targetRpe,
                         exercise.targetWeight
                       )}

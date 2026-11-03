@@ -56,10 +56,11 @@ type LogRow = WorkoutLogEntryPayload & {
   muscleGroup: ExerciseMuscleGroupValue
   plannedExerciseId: string
   blockRounds: number
-  prescriptionMode: "reps" | "time"
+  prescriptionMode: "reps" | "time" | "distance"
   targetLabel: string
   targetReps: number | null
   targetDurationSeconds: number | null
+  targetDistance: number | null
   targetRpe: number | null
   targetWeight: number | null
 }
@@ -97,9 +98,10 @@ type SwapDraft = {
 }
 
 function buildTargetLabel(
-  prescriptionMode: "reps" | "time",
+  prescriptionMode: "reps" | "time" | "distance",
   targetReps: number | null,
   targetDurationSeconds: number | null,
+  targetDistance: number | null,
   targetRpe: number | null,
   targetWeight: number | null
 ) {
@@ -110,7 +112,11 @@ function buildTargetLabel(
   }
 
   if (prescriptionMode === "time" && targetDurationSeconds) {
-    parts.push(`${targetDurationSeconds}s`)
+    parts.push(`${targetDurationSeconds} seconds`)
+  }
+
+  if (prescriptionMode === "distance" && targetDistance) {
+    parts.push(`${targetDistance} yards`)
   }
 
   if (targetRpe) {
@@ -130,6 +136,7 @@ function prescribedValuesForExercise(
   return {
     actualReps: exercise.targetReps ?? undefined,
     actualDurationSeconds: exercise.targetDurationSeconds ?? undefined,
+    actualDistance: exercise.targetDistance ?? undefined,
     actualRpe: exercise.targetRpe ?? undefined,
     actualWeight:
       exercise.targetWeight != null ? snapWeight(exercise.targetWeight) : undefined,
@@ -204,18 +211,21 @@ function buildInitialRows(
           prescriptionMode: exercise.prescriptionMode,
           targetReps: exercise.targetReps,
           targetDurationSeconds: exercise.targetDurationSeconds,
+          targetDistance: exercise.targetDistance,
           targetRpe: exercise.targetRpe,
           targetWeight: exercise.targetWeight,
           targetLabel: buildTargetLabel(
             exercise.prescriptionMode,
             exercise.targetReps,
             exercise.targetDurationSeconds,
+            exercise.targetDistance,
             exercise.targetRpe,
             exercise.targetWeight
           ),
           actualReps: existing?.actualReps ?? prescribed.actualReps,
           actualDurationSeconds:
             existing?.actualDurationSeconds ?? prescribed.actualDurationSeconds,
+          actualDistance: existing?.actualDistance ?? prescribed.actualDistance,
           actualRpe: existing?.actualRpe ?? prescribed.actualRpe,
           actualWeight: existing?.actualWeight ?? prescribed.actualWeight,
           notes: existing?.notes ?? undefined,
@@ -234,16 +244,20 @@ function rowMatchesPrescription(row: LogRow) {
   const durationMatch =
     row.prescriptionMode !== "time" ||
     row.actualDurationSeconds === (row.targetDurationSeconds ?? undefined)
+  const distanceMatch = 
+    row.prescriptionMode !== "distance" ||
+    row.actualDistance === (row.targetDistance ?? undefined)
   const rpeMatch = row.actualRpe === (row.targetRpe ?? undefined)
   const weightMatch = row.actualWeight === (row.targetWeight ?? undefined)
 
-  return repsMatch && durationMatch && rpeMatch && weightMatch
+  return repsMatch && durationMatch && distanceMatch && rpeMatch && weightMatch
 }
 
 function prescribedValuesForRow(row: LogRow): Partial<LogRow> {
   return {
     actualReps: row.targetReps ?? undefined,
     actualDurationSeconds: row.targetDurationSeconds ?? undefined,
+    actualDistance: row.targetDistance ?? undefined,
     actualRpe: row.targetRpe ?? undefined,
     actualWeight:
       row.targetWeight != null ? snapWeight(row.targetWeight) : undefined,
@@ -281,7 +295,7 @@ function resolveLastLogged(
 
 function formatLastLoggedLabel(
   values: LastLoggedSet,
-  prescriptionMode: "reps" | "time"
+  prescriptionMode: "reps" | "time" | "distance"
 ) {
   const parts: string[] = []
 
@@ -290,7 +304,11 @@ function formatLastLoggedLabel(
   }
 
   if (prescriptionMode === "time" && values.actualDurationSeconds != null) {
-    parts.push(`${values.actualDurationSeconds}s`)
+    parts.push(`${values.actualDurationSeconds} seconds`)
+  }
+
+  if (prescriptionMode === "distance" && values.actualDistance != null) {
+    parts.push(`${values.actualDistance} yards`)
   }
 
   if (values.actualWeight != null) {
@@ -471,6 +489,7 @@ export function WorkoutLogForm({
             targetLabel: _target,
             targetReps: _targetReps,
             targetDurationSeconds: _targetDurationSeconds,
+            targetDistance: _targetDistance,
             targetRpe: _targetRpe,
             targetWeight: _targetWeight,
             ...entry
@@ -1062,7 +1081,7 @@ function LogFields({
                           }
                           readOnly={isReadOnly}
                         />
-                      ) : (
+                      ) : row.prescriptionMode === "time" ? (
                         <NumericStepper
                           id={`${row.rowKey}-duration`}
                           label="Duration (sec)"
@@ -1086,6 +1105,33 @@ function LogFields({
                           matchesTarget={
                             row.targetDurationSeconds != null &&
                             row.actualDurationSeconds === row.targetDurationSeconds
+                          }
+                          readOnly={isReadOnly}
+                        />
+                      ) : (
+                        <NumericStepper
+                          id={`${row.rowKey}-distance`}
+                          label="Distance (yds)"
+                          targetHint={
+                            row.targetDistance
+                              ? String(row.targetDistance)
+                              : null
+                          }
+                          lastHint={
+                            lastLogged?.actualDistance != null
+                              ? String(lastLogged.actualDistance)
+                              : null
+                          }
+                          value={row.actualDistance}
+                          onChange={(actualDistance) =>
+                            onRowChange(row.rowKey, { actualDistance })
+                          }
+                          step={5}
+                          parseInput={(raw) => parseLogIntInput(raw)}
+                          clampValue={(value) => clampLogInt(value)}
+                          matchesTarget={
+                            row.targetDistance != null &&
+                            row.actualDistance === row.targetDistance
                           }
                           readOnly={isReadOnly}
                         />

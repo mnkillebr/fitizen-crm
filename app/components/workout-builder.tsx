@@ -131,6 +131,7 @@ function createInitialState(defaultTemplate?: WorkoutTemplateWithDetails): Build
           prescriptionMode: exercise.prescriptionMode,
           targetReps: exercise.targetReps ?? undefined,
           targetDurationSeconds: exercise.targetDurationSeconds ?? undefined,
+          targetDistance: exercise.targetDistance ?? undefined,
           targetRpe: exercise.targetRpe ?? undefined,
           targetWeight: exercise.targetWeight ?? undefined,
           tempo: exercise.tempo ?? undefined,
@@ -172,6 +173,7 @@ function serializeState(state: BuilderState): WorkoutBuilderPayload {
         prescriptionMode: exercise.prescriptionMode,
         targetReps: exercise.targetReps,
         targetDurationSeconds: exercise.targetDurationSeconds,
+        targetDistance: exercise.targetDistance,
         targetRpe: exercise.targetRpe,
         targetWeight: exercise.targetWeight,
         tempo: exercise.tempo || undefined,
@@ -404,6 +406,7 @@ function ExercisePrescriptionRow({
               <SelectGroup>
                 <SelectItem value="reps">Reps</SelectItem>
                 <SelectItem value="time">Time</SelectItem>
+                <SelectItem value="distance">Distance</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -423,7 +426,7 @@ function ExercisePrescriptionRow({
               }
             />
           </div>
-        ) : (
+        ) : exercise.prescriptionMode === "time" ? (
           <div className="space-y-1.5">
             <Label>Duration (sec)</Label>
             <Input
@@ -433,6 +436,22 @@ function ExercisePrescriptionRow({
               onChange={(event) =>
                 onChange({
                   targetDurationSeconds: event.target.value
+                    ? Number(event.target.value)
+                    : undefined,
+                })
+              }
+            />
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            <Label>Distance (yds)</Label>
+            <Input
+              type="number"
+              min={1}
+              value={exercise.targetDistance ?? ""}
+              onChange={(event) =>
+                onChange({
+                  targetDistance: event.target.value
                     ? Number(event.target.value)
                     : undefined,
                 })
@@ -601,7 +620,7 @@ export function WorkoutBuilder({
           prescriptionMode: "reps",
           targetReps: 10,
           targetRpe: 7,
-          restAfterSeconds: 60,
+          restAfterSeconds: 30,
         }
 
         return {
