@@ -2,6 +2,7 @@ import {
   calculateEstimatedOneRepMax,
   calculateVolumeDuration,
   calculateVolumeLifted,
+  calculateWorkVolume,
   withChangePercent,
 } from "~/lib/utils"
 import type {
@@ -11,7 +12,7 @@ import type {
 
 export const TREND_CARD_COUNT = 3
 
-export const STRENGTH_METRICS = ["volume", "duration", "e1rm"] as const
+export const STRENGTH_METRICS = ["volume", "duration", "e1rm", "work"] as const
 
 export type StrengthMetric = (typeof STRENGTH_METRICS)[number]
 
@@ -19,6 +20,7 @@ export const DEFAULT_STRENGTH_METRICS: StrengthMetric[] = [
   "volume",
   "e1rm",
   "duration",
+  "work",
 ]
 
 export type StrengthTrendSelection = {
@@ -84,8 +86,17 @@ const metricDefs: Record<
     description: "Volume duration over time",
     metricLabel: "Latest volume duration",
     seriesKey: "duration",
-    chartLabel: "TotalVolume Duration (load x sets xduration)",
+    chartLabel: "Total Volume Duration (load x sets x duration)",
     emptyMessage: "No duration volume logged yet",
+    emptyValue: "—",
+    format: (value) => `${Math.round(value).toLocaleString()}`,
+  },
+  work: {
+    description: "Work volume over time",
+    metricLabel: "Latest work volume",
+    seriesKey: "work",
+    chartLabel: "Total Work Volume (load x sets x distance)",
+    emptyMessage: "No work volume logged yet",
     emptyValue: "—",
     format: (value) => `${Math.round(value).toLocaleString()}`,
   },
@@ -103,7 +114,7 @@ const metricDefs: Record<
 
 export function isStrengthMetric(value: string | null): value is StrengthMetric {
   return (
-    value === "volume" || value === "duration" || value === "e1rm"
+    value === "volume" || value === "duration" || value === "e1rm" || value === "work"
   )
 }
 
@@ -170,6 +181,11 @@ export function buildStrengthTrendSlides(
       rawPoints = calculateVolumeDuration(logEntries).map((point) => ({
         date: point.date,
         value: point.totalDuration,
+      }))
+    } else if (selection.metric === "work") {
+      rawPoints = calculateWorkVolume(logEntries).map((point) => ({
+        date: point.date,
+        value: point.totalWorkVolume,
       }))
     } else {
       rawPoints = calculateEstimatedOneRepMax(logEntries).map((point) => ({
@@ -256,5 +272,6 @@ export const strengthMetricOptions: Array<{
 }> = [
   { value: "volume", label: "Volume lifted" },
   { value: "duration", label: "Volume duration" },
+  { value: "work", label: "Work volume" },
   { value: "e1rm", label: "Est. 1RM" },
 ]

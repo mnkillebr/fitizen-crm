@@ -19,6 +19,12 @@ type GroupedVolumeDuration = {
   totalDuration: number
 }
 
+type GroupedWorkVolume = {
+  date: Date | string
+  exerciseName: string
+  totalWorkVolume: number
+}
+
 type GroupedEstimatedOneRepMax = {
   date: Date | string
   exerciseName: string
@@ -74,6 +80,33 @@ export function calculateVolumeDuration(logEntries: ExerciseLogVolumePoint[]): G
     }
 
     acc[dateKey].totalDuration += actualDurationSeconds * weight;
+
+    return acc;
+  }, {});
+
+  return Object.values(grouped).sort(
+    (a, b) => toDate(a.date).getTime() - toDate(b.date).getTime()
+  );
+}
+
+export function calculateWorkVolume(logEntries: ExerciseLogVolumePoint[]): GroupedWorkVolume[] {
+  const grouped = logEntries.reduce<Record<string, GroupedWorkVolume>>((acc, item) => {
+    const { completedAt, exerciseName, actualDistance, actualWeight } = item;
+
+    if (!completedAt || actualDistance == null || actualDistance <= 0) {
+      return acc;
+    }
+
+    // Bodyweight work: treat missing or zero load as a unit multiplier.
+    const weight = actualWeight != null && actualWeight > 0 ? actualWeight : 1
+    const date = toDate(completedAt)
+    const dateKey = date.toISOString();
+
+    if (!acc[dateKey]) {
+      acc[dateKey] = { date, exerciseName, totalWorkVolume: 0 };
+    }
+
+    acc[dateKey].totalWorkVolume += actualDistance * weight;
 
     return acc;
   }, {});
