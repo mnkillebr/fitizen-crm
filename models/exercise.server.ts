@@ -50,6 +50,7 @@ export type ExerciseLogVolumePoint = {
   exerciseName: string
   completedAt: Date | null
   actualReps: number | null
+  actualDistance: number | null
   actualDurationSeconds: number | null
   actualWeight: number | null
   roundNumber: number
@@ -250,7 +251,8 @@ export function getLoggedExercisesForMember(
 /**
  * Workout log entries for an exercise, ordered by session date.
  * Use `actualReps` / `actualWeight` for volume lifted (sets × reps × load)
- * and `actualDurationSeconds` / `actualWeight` for volume duration (sets × duration × load).
+ * `actualDurationSeconds` / `actualWeight` for volume duration (sets × duration × load)
+ * and `actualDistance` / `actualWeight` for work volume (sets x distance x load).
  */
 export function getExerciseLogEntries(
   memberId: string,
@@ -261,6 +263,7 @@ export function getExerciseLogEntries(
       exerciseName: Exercise.name,
       completedAt: WorkoutLog.completedAt,
       actualReps: WorkoutLogEntry.actualReps,
+      actualDistance: WorkoutLogEntry.actualDistance,
       actualDurationSeconds: WorkoutLogEntry.actualDurationSeconds,
       actualWeight: WorkoutLogEntry.actualWeight,
       roundNumber: WorkoutLogEntry.roundNumber,

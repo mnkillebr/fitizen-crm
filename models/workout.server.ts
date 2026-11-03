@@ -99,6 +99,7 @@ export type ExerciseProgressionPoint = {
   actualWeight: number | null
   actualReps: number | null
   actualDurationSeconds: number | null
+  actualDistance: number | null
   actualRpe: number | null
   roundNumber: number
   setNumber: number | null
@@ -109,6 +110,7 @@ export type LastLoggedSet = {
   completedAt: Date
   actualReps: number | null
   actualDurationSeconds: number | null
+  actualDistance: number | null
   actualWeight: number | null
   actualRpe: number | null
   roundNumber: number
@@ -471,6 +473,7 @@ export function getExerciseProgression(
       completedAt: WorkoutLog.completedAt,
       actualWeight: WorkoutLogEntry.actualWeight,
       actualReps: WorkoutLogEntry.actualReps,
+      actualDistance: WorkoutLogEntry.actualDistance,
       actualDurationSeconds: WorkoutLogEntry.actualDurationSeconds,
       actualRpe: WorkoutLogEntry.actualRpe,
       roundNumber: WorkoutLogEntry.roundNumber,
@@ -507,6 +510,7 @@ export async function getLastLoggedSetsForExercises(
       completedAt: WorkoutLog.completedAt,
       actualWeight: WorkoutLogEntry.actualWeight,
       actualReps: WorkoutLogEntry.actualReps,
+      actualDistance: WorkoutLogEntry.actualDistance,
       actualDurationSeconds: WorkoutLogEntry.actualDurationSeconds,
       actualRpe: WorkoutLogEntry.actualRpe,
       roundNumber: WorkoutLogEntry.roundNumber,
@@ -550,6 +554,7 @@ export async function getLastLoggedSetsForExercises(
       completedAt: row.completedAt,
       actualReps: row.actualReps,
       actualDurationSeconds: row.actualDurationSeconds,
+      actualDistance: row.actualDistance,
       actualWeight: row.actualWeight,
       actualRpe: row.actualRpe,
       roundNumber: row.roundNumber,
@@ -917,6 +922,7 @@ function mapLogEntries(logId: string, entries: WorkoutLogEntryPayload[]) {
     setNumber: entry.setNumber ?? null,
     actualReps: entry.actualReps ?? null,
     actualDurationSeconds: entry.actualDurationSeconds ?? null,
+    actualDistance: entry.actualDistance ?? null,
     actualRpe: entry.actualRpe ?? null,
     actualWeight: entry.actualWeight ?? null,
     notes: entry.notes ?? null,
@@ -1007,6 +1013,7 @@ export async function createBackfillWorkoutForClient(
         prescriptionMode: exercise.prescriptionMode,
         targetReps: exercise.targetReps ?? null,
         targetDurationSeconds: exercise.targetDurationSeconds ?? null,
+        targetDistance: exercise.targetDistance ?? null,
         targetRpe: exercise.targetRpe ?? null,
         targetWeight: exercise.targetWeight ?? null,
         tempo: exercise.tempo ?? null,
