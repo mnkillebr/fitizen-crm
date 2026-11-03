@@ -48,6 +48,7 @@ export const WorkoutBlockType = pgEnum('WorkoutBlockType', [
 export const ExercisePrescriptionMode = pgEnum('ExercisePrescriptionMode', [
   'reps',
   'time',
+  'distance',
 ])
 
 export const ExercisePlaneOfMotion = pgEnum('ExercisePlaneOfMotion', [
@@ -239,6 +240,7 @@ export const WorkoutBlockExercise = pgTable('WorkoutBlockExercise', {
   orderIndex: integer('orderIndex').notNull(),
   prescriptionMode: ExercisePrescriptionMode('prescriptionMode').notNull(),
   targetReps: integer('targetReps'),
+  targetDistance: integer('targetDistance'),
   targetDurationSeconds: integer('targetDurationSeconds'),
   targetRpe: integer('targetRpe'),
   targetWeight: real('targetWeight'),
@@ -294,6 +296,7 @@ export const WorkoutTemplateBlockExercise = pgTable('WorkoutTemplateBlockExercis
   orderIndex: integer('orderIndex').notNull(),
   prescriptionMode: ExercisePrescriptionMode('prescriptionMode').notNull(),
   targetReps: integer('targetReps'),
+  targetDistance: integer('targetDistance'),
   targetDurationSeconds: integer('targetDurationSeconds'),
   targetRpe: integer('targetRpe'),
   targetWeight: real('targetWeight'),
@@ -326,7 +329,7 @@ export const WorkoutLog = pgTable('WorkoutLog', {
   updatedAt: timestamp('updatedAt', { precision: 3 }).notNull(),
 })
 
-/** Actual reps, time, RPE, and load logged for a prescribed (or ad-hoc) exercise. */
+/** Actual reps, time, distance, RPE, and load logged for a prescribed (or ad-hoc) exercise. */
 export const WorkoutLogEntry = pgTable('WorkoutLogEntry', {
   id: uuid('id').primaryKey().defaultRandom(),
   workoutLogId: uuid('workoutLogId')
@@ -345,6 +348,7 @@ export const WorkoutLogEntry = pgTable('WorkoutLogEntry', {
   roundNumber: integer('roundNumber').notNull().default(1),
   setNumber: integer('setNumber'),
   actualReps: integer('actualReps'),
+  actualDistance: integer('actualDistance'),
   actualDurationSeconds: integer('actualDurationSeconds'),
   actualRpe: integer('actualRpe'),
   actualWeight: real('actualWeight'),
