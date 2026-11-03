@@ -29,6 +29,7 @@ export const workoutBlockTypeLabels: Record<WorkoutBlockTypeValue, string> = {
 export const prescriptionModeLabels: Record<PrescriptionModeValue, string> = {
   reps: "Reps",
   time: "Time",
+  distance: "Distance",
 }
 
 export function blockTypeForStyle(style: WorkoutStyleValue): WorkoutBlockTypeValue {
@@ -75,6 +76,7 @@ export const builderBlockExerciseSchema = z
     orderIndex: z.number().int().min(0),
     prescriptionMode: z.enum(prescriptionModeValues),
     targetReps: optionalInt,
+    targetDistance: optionalInt,
     targetDurationSeconds: optionalInt,
     targetRpe: z.preprocess(
       (value) =>
@@ -104,6 +106,14 @@ export const builderBlockExerciseSchema = z
         code: "custom",
         message: "Duration is required for time-based prescriptions",
         path: ["targetDurationSeconds"],
+      })
+    }
+
+    if (exercise.prescriptionMode === "distance" && exercise.targetDistance === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Distance is required for distance-based prescriptions",
+        path: ["targetDistance"],
       })
     }
   })

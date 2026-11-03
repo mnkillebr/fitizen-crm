@@ -83,6 +83,7 @@ export const workoutLogEntrySchema = z.object({
   roundNumber: z.number().int().min(1).default(1),
   setNumber: optionalInt,
   actualReps: optionalInt,
+  actualDistance: optionalInt,
   actualDurationSeconds: optionalInt,
   actualRpe: z.preprocess(
     (value) => (value === "" || value === null || value === undefined ? undefined : Number(value)),
