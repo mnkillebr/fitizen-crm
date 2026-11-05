@@ -1,4 +1,10 @@
-import { ArrowsLeftRightIcon, MinusIcon, PlusIcon } from "@phosphor-icons/react"
+import {
+  ArrowsLeftRightIcon,
+  CaretDownIcon,
+  CaretRightIcon,
+  MinusIcon,
+  PlusIcon,
+} from "@phosphor-icons/react"
 import { Form } from "react-router"
 import { useMemo, useRef, useState } from "react"
 
@@ -1157,6 +1163,22 @@ function LogFields({
   onStartEdit?: () => void
   onSwapExercise?: (row: LogRow) => void
 }) {
+  const [expandedByBlockId, setExpandedByBlockId] = useState<Record<string, boolean>>(
+    {}
+  )
+
+  function isBlockExpanded(blockId: string) {
+    return expandedByBlockId[blockId] !== false
+  }
+
+  function toggleBlockExpanded(blockId: string) {
+    setExpandedByBlockId((current) => ({
+      ...current,
+      // Default is expanded (undefined); collapsed only when explicitly false.
+      [blockId]: current[blockId] === false,
+    }))
+  }
+
   return (
     <>
       {workout.notes ? (
@@ -1178,17 +1200,30 @@ function LogFields({
           0
         )
         const exerciseGroups = groupRowsByBlockExercise(block.exercises, blockRows)
+        const isExpanded = isBlockExpanded(block.id)
 
         return (
           <div key={block.id} className="space-y-3 rounded-lg border p-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <p className="font-medium">{block.name ?? "Workout block"}</p>
-                <div className="mt-1 flex flex-wrap gap-2">
+                <div className="mt-1 flex flex-wrap items-center gap-2">
                   <Badge variant="secondary">
                     {workoutBlockTypeLabels[block.blockType]}
                   </Badge>
                   <Badge variant="outline">{currentRounds} rounds</Badge>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={() => toggleBlockExpanded(block.id)}
+                    aria-expanded={isExpanded}
+                    aria-controls={`block-${block.id}-exercises`}
+                  >
+                    {isExpanded ? <CaretDownIcon /> : <CaretRightIcon />}
+                    {isExpanded ? "Collapse" : "Expand"}
+                  </Button>
                 </div>
               </div>
 
@@ -1245,7 +1280,7 @@ function LogFields({
               <p className="text-sm text-muted-foreground">{block.notes}</p>
             ) : null}
 
-            <div className="space-y-3">
+            <div id={`block-${block.id}-exercises`} className="space-y-3">
               {exerciseGroups.map(({ blockExerciseId, rows: exerciseRows }) => {
                 const leadRow = exerciseRows[0]!
                 const swapped = rowHasSwap(leadRow)
@@ -1260,6 +1295,29 @@ function LogFields({
                     )
                   : null
                 const primaryLabel = primaryMetricLabel(leadRow.prescriptionMode)
+
+                if (!isExpanded) {
+                  return (
+                    <div
+                      key={blockExerciseId}
+                      className="rounded-md border bg-background px-3 py-2"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium">{leadRow.exerciseName}</p>
+                        {swapped ? (
+                          <Badge variant="secondary">Swapped</Badge>
+                        ) : null}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Planned {leadRow.targetLabel}
+                        {leadRow.tempo ? ` · Tempo ${leadRow.tempo}` : ""}
+                        {leadRow.accessories
+                          ? ` · ${leadRow.accessories}`
+                          : ""}
+                      </p>
+                    </div>
+                  )
+                }
 
                 return (
                   <div
