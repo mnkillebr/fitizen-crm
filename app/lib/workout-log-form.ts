@@ -87,12 +87,13 @@ const optionalFloat = z.preprocess(
 )
 
 export const workoutLogEntrySchema = z.object({
-  blockExerciseId: z.string().uuid(),
+  blockExerciseId: z.string().uuid().optional(),
   exerciseId: z.string().uuid(),
   originalExerciseId: z.string().uuid().optional(),
   swapReason: z.enum(exerciseSwapReasonValues).optional(),
   roundNumber: z.number().int().min(1).default(1),
   setNumber: optionalInt,
+  adjunctId: z.string().uuid().optional(),
   prescriptionMode: z.enum(prescriptionModeValues).optional(),
   tempo: optionalString,
   cues: optionalString,
