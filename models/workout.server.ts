@@ -914,12 +914,13 @@ export async function startWorkoutLog(
 function mapLogEntries(logId: string, entries: WorkoutLogEntryPayload[]) {
   return entries.map((entry) => ({
     workoutLogId: logId,
-    blockExerciseId: entry.blockExerciseId,
+    blockExerciseId: entry.blockExerciseId ?? null,
     exerciseId: entry.exerciseId,
     originalExerciseId: entry.originalExerciseId ?? null,
     swapReason: entry.swapReason ?? null,
     roundNumber: entry.roundNumber,
     setNumber: entry.setNumber ?? null,
+    adjunctId: entry.adjunctId ?? null,
     prescriptionMode: entry.prescriptionMode ?? null,
     tempo: entry.tempo ?? null,
     cues: entry.cues ?? null,
