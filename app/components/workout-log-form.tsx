@@ -14,7 +14,6 @@ import {
 } from "~/components/ui/dialog"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group"
 import {
   Select,
   SelectContent,
@@ -23,7 +22,11 @@ import {
   SelectValue,
 } from "~/components/ui/select"
 import { cn } from "~/lib/utils"
-import { workoutBlockTypeLabels } from "~/lib/workout-builder"
+import {
+  prescriptionModeLabels,
+  prescriptionModeValues,
+  workoutBlockTypeLabels,
+} from "~/lib/workout-builder"
 import {
   clampLogInt,
   clampLogRpe,
@@ -34,6 +37,7 @@ import {
   parseWeightInput,
   snapWeight,
   type ExerciseSwapReasonValue,
+  type PrescriptionModeValue,
   type WorkoutLogEntryPayload,
 } from "~/lib/workout-log-form"
 import type { ExerciseMuscleGroupValue } from "../../db/schema"
@@ -55,8 +59,12 @@ type LogRow = WorkoutLogEntryPayload & {
   originalExerciseName: string
   muscleGroup: ExerciseMuscleGroupValue
   plannedExerciseId: string
+  plannedPrescriptionMode: PrescriptionModeValue
   blockRounds: number
-  prescriptionMode: "reps" | "time" | "distance"
+  prescriptionMode: PrescriptionModeValue
+  tempo?: string
+  cues?: string
+  accessories?: string
   targetLabel: string
   targetReps: number | null
   targetDurationSeconds: number | null
@@ -86,12 +94,8 @@ type WorkoutLogFormProps = {
 }
 
 type SwapDraft = {
-  rowKey: string
   blockExerciseId: string
-  roundNumber: number
-  blockRounds: number
   muscleGroup: ExerciseMuscleGroupValue
-  plannedExerciseId: string
   currentExerciseId: string
   originalExerciseId: string
   originalExerciseName: string
@@ -170,7 +174,15 @@ function buildInitialRows(
   const rows: LogRow[] = []
 
   for (const block of workout.blocks) {
-    const rounds = block.rounds ?? 1
+    const plannedRounds = block.rounds ?? 1
+    const blockExerciseIds = new Set(block.exercises.map((exercise) => exercise.id))
+    let maxSavedRound = 0
+    for (const entry of defaultEntries ?? []) {
+      if (entry.blockExerciseId && blockExerciseIds.has(entry.blockExerciseId)) {
+        maxSavedRound = Math.max(maxSavedRound, entry.roundNumber)
+      }
+    }
+    const rounds = Math.max(plannedRounds, maxSavedRound, 1)
 
     for (let round = 1; round <= rounds; round += 1) {
       for (const exercise of block.exercises) {
@@ -188,6 +200,9 @@ function buildInitialRows(
           exerciseNameById.get(exerciseId) ?? exercise.exercise.name
         const originalExerciseName =
           exerciseNameById.get(originalExerciseId) ?? exercise.exercise.name
+        const prescriptionMode =
+          (existing?.prescriptionMode as PrescriptionModeValue | null | undefined) ??
+          exercise.prescriptionMode
 
         rows.push({
           rowKey,
@@ -207,8 +222,12 @@ function buildInitialRows(
           originalExerciseName,
           muscleGroup: exercise.exercise.muscleGroup,
           plannedExerciseId,
+          plannedPrescriptionMode: exercise.prescriptionMode,
           blockRounds: rounds,
-          prescriptionMode: exercise.prescriptionMode,
+          prescriptionMode,
+          tempo: existing?.tempo ?? exercise.tempo ?? undefined,
+          cues: existing?.cues ?? exercise.cues ?? undefined,
+          accessories: existing?.accessories ?? exercise.accessories ?? undefined,
           targetReps: exercise.targetReps,
           targetDurationSeconds: exercise.targetDurationSeconds,
           targetDistance: exercise.targetDistance,
@@ -254,13 +273,37 @@ function rowMatchesPrescription(row: LogRow) {
 }
 
 function prescribedValuesForRow(row: LogRow): Partial<LogRow> {
-  return {
-    actualReps: row.targetReps ?? undefined,
-    actualDurationSeconds: row.targetDurationSeconds ?? undefined,
-    actualDistance: row.targetDistance ?? undefined,
+  const shared: Partial<LogRow> = {
     actualRpe: row.targetRpe ?? undefined,
     actualWeight:
       row.targetWeight != null ? snapWeight(row.targetWeight) : undefined,
+  }
+
+  if (row.prescriptionMode !== row.plannedPrescriptionMode) {
+    return shared
+  }
+
+  return {
+    ...shared,
+    actualReps:
+      row.prescriptionMode === "reps" ? (row.targetReps ?? undefined) : undefined,
+    actualDurationSeconds:
+      row.prescriptionMode === "time"
+        ? (row.targetDurationSeconds ?? undefined)
+        : undefined,
+    actualDistance:
+      row.prescriptionMode === "distance"
+        ? (row.targetDistance ?? undefined)
+        : undefined,
+  }
+}
+
+function prescriptionModeChange(row: LogRow, mode: PrescriptionModeValue): Partial<LogRow> {
+  return {
+    prescriptionMode: mode,
+    actualReps: mode === "reps" ? row.actualReps : undefined,
+    actualDurationSeconds: mode === "time" ? row.actualDurationSeconds : undefined,
+    actualDistance: mode === "distance" ? row.actualDistance : undefined,
   }
 }
 
@@ -338,6 +381,8 @@ type NumericStepperProps = {
   clampValue: (value: number) => number
   matchesTarget?: boolean
   readOnly?: boolean
+  compact?: boolean
+  hideLabel?: boolean
 }
 
 function NumericStepper({
@@ -356,6 +401,8 @@ function NumericStepper({
   clampValue,
   matchesTarget,
   readOnly = false,
+  compact = false,
+  hideLabel = false,
 }: NumericStepperProps) {
   function adjust(delta: number) {
     const base = value ?? clampValue(min)
@@ -366,26 +413,35 @@ function NumericStepper({
     targetHint ? `Target ${targetHint}` : null,
     lastHint ? `Last ${lastHint}` : null,
   ].filter(Boolean)
+  const controlHeight = compact ? "h-9" : "h-11"
+  const buttonWidth = compact ? "w-9" : "w-11"
+  const textSize = compact ? "text-sm" : "text-base"
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <Label htmlFor={id} className="text-xs">
-          {label}
-        </Label>
-        {hints.length > 0 ? (
-          <span className="text-[0.65rem] text-muted-foreground">
-            {hints.join(" · ")}
-          </span>
-        ) : null}
-      </div>
+    <div className={cn(compact ? "space-y-1" : "space-y-1.5")}>
+      {hideLabel ? null : (
+        <div className="flex items-baseline justify-between gap-2">
+          <Label htmlFor={id} className="text-xs">
+            {label}
+          </Label>
+          {hints.length > 0 ? (
+            <span className="text-[0.65rem] text-muted-foreground">
+              {hints.join(" · ")}
+            </span>
+          ) : null}
+        </div>
+      )}
 
       {readOnly ? (
         <div
           className={cn(
-            "flex h-11 items-center justify-center rounded-md border bg-muted/20 text-base tabular-nums",
+            "flex items-center justify-center rounded-md border bg-muted/20 tabular-nums",
+            controlHeight,
+            textSize,
             matchesTarget && "border-primary/30 bg-primary/5"
           )}
+          aria-label={label}
+          title={hints.length > 0 ? hints.join(" · ") : undefined}
         >
           {value === undefined ? "—" : formatDisplay(value)}
         </div>
@@ -395,12 +451,17 @@ function NumericStepper({
             "flex items-stretch overflow-hidden rounded-md border bg-background",
             matchesTarget && "border-primary/30 bg-primary/5"
           )}
+          title={hints.length > 0 ? hints.join(" · ") : undefined}
         >
           <Button
             type="button"
             variant="ghost"
-            size="icon-lg"
-            className="h-11 w-11 shrink-0 rounded-none border-r"
+            size="icon"
+            className={cn(
+              controlHeight,
+              buttonWidth,
+              "shrink-0 rounded-none border-r"
+            )}
             onClick={() => adjust(-step)}
             aria-label={`Decrease ${label.toLowerCase()}`}
           >
@@ -413,7 +474,12 @@ function NumericStepper({
             inputMode={inputMode}
             autoComplete="off"
             maxLength={inputMode === "decimal" ? 5 : 3}
-            className="h-11 min-w-0 flex-1 rounded-none border-0 bg-transparent text-center text-base tabular-nums focus-visible:ring-0"
+            aria-label={label}
+            className={cn(
+              "min-w-0 flex-1 rounded-none border-0 bg-transparent text-center tabular-nums focus-visible:ring-0",
+              controlHeight,
+              textSize
+            )}
             value={value === undefined ? "" : formatDisplay(value)}
             placeholder="—"
             onChange={(event) => onChange(parseInput(event.target.value))}
@@ -427,8 +493,12 @@ function NumericStepper({
           <Button
             type="button"
             variant="ghost"
-            size="icon-lg"
-            className="h-11 w-11 shrink-0 rounded-none border-l"
+            size="icon"
+            className={cn(
+              controlHeight,
+              buttonWidth,
+              "shrink-0 rounded-none border-l"
+            )}
             onClick={() => adjust(step)}
             aria-label={`Increase ${label.toLowerCase()}`}
           >
@@ -438,6 +508,39 @@ function NumericStepper({
       )}
     </div>
   )
+}
+
+function groupRowsByBlockExercise(
+  blockExercises: WorkoutWithDetails["blocks"][number]["exercises"],
+  blockRows: LogRow[]
+) {
+  const rowsByBlockExerciseId = new Map<string, LogRow[]>()
+  for (const row of blockRows) {
+    const existing = rowsByBlockExerciseId.get(row.blockExerciseId) ?? []
+    existing.push(row)
+    rowsByBlockExerciseId.set(row.blockExerciseId, existing)
+  }
+
+  return blockExercises
+    .map((exercise) => {
+      const exerciseRows = rowsByBlockExerciseId.get(exercise.id) ?? []
+      return {
+        blockExerciseId: exercise.id,
+        rows: [...exerciseRows].sort((a, b) => a.roundNumber - b.roundNumber),
+      }
+    })
+    .filter((group) => group.rows.length > 0)
+}
+
+function primaryMetricLabel(mode: PrescriptionModeValue) {
+  switch (mode) {
+    case "reps":
+      return "Reps"
+    case "time":
+      return "Sec"
+    case "distance":
+      return "Yds"
+  }
 }
 
 export function WorkoutLogForm({
@@ -470,7 +573,6 @@ export function WorkoutLogForm({
   const [swapDraft, setSwapDraft] = useState<SwapDraft | null>(null)
   const [swapExerciseId, setSwapExerciseId] = useState<string>("")
   const [swapReason, setSwapReason] = useState<ExerciseSwapReasonValue | "">("")
-  const [swapScope, setSwapScope] = useState<"current" | "all">("current")
 
   const isReadOnly = isCompleted && (!allowEdit || !isEditing)
 
@@ -484,8 +586,8 @@ export function WorkoutLogForm({
             originalExerciseName: _originalName,
             muscleGroup: _muscleGroup,
             plannedExerciseId: _planned,
+            plannedPrescriptionMode: _plannedMode,
             blockRounds: _rounds,
-            prescriptionMode: _mode,
             targetLabel: _target,
             targetReps: _targetReps,
             targetDurationSeconds: _targetDurationSeconds,
@@ -506,13 +608,153 @@ export function WorkoutLogForm({
     )
   }
 
+  function updateExerciseRows(
+    blockExerciseId: string,
+    updates: Partial<LogRow>
+  ) {
+    setRows((current) =>
+      current.map((row) =>
+        row.blockExerciseId === blockExerciseId ? { ...row, ...updates } : row
+      )
+    )
+  }
+
+  function changeExercisePrescriptionMode(
+    blockExerciseId: string,
+    mode: PrescriptionModeValue
+  ) {
+    setRows((current) =>
+      current.map((row) =>
+        row.blockExerciseId === blockExerciseId
+          ? { ...row, ...prescriptionModeChange(row, mode) }
+          : row
+      )
+    )
+  }
+
   function resetRowsToPrescription(rowKeys: string[]) {
     const keySet = new Set(rowKeys)
     setRows((current) =>
-      current.map((row) =>
-        keySet.has(row.rowKey) ? { ...row, ...prescribedValuesForRow(row) } : row
-      )
+      current.map((row) => {
+        if (!keySet.has(row.rowKey)) {
+          return row
+        }
+
+        return {
+          ...row,
+          actualReps: undefined,
+          actualDurationSeconds: undefined,
+          actualDistance: undefined,
+          ...prescribedValuesForRow(row),
+        }
+      })
     )
+  }
+
+  function addBlockRound(blockId: string) {
+    const block = workout.blocks.find((candidate) => candidate.id === blockId)
+    if (!block) {
+      return
+    }
+
+    const blockExerciseIds = new Set(block.exercises.map((exercise) => exercise.id))
+
+    setRows((current) => {
+      const blockRows = current.filter((row) =>
+        blockExerciseIds.has(row.blockExerciseId)
+      )
+      if (blockRows.length === 0) {
+        return current
+      }
+
+      const maxRound = blockRows.reduce(
+        (max, row) => Math.max(max, row.roundNumber),
+        0
+      )
+      const nextRound = maxRound + 1
+      const newBlockRounds = nextRound
+
+      const updated = current.map((row) =>
+        blockExerciseIds.has(row.blockExerciseId)
+          ? { ...row, blockRounds: newBlockRounds }
+          : row
+      )
+
+      const newRows: LogRow[] = []
+      for (const exercise of block.exercises) {
+        const latest = [...blockRows]
+          .filter((row) => row.blockExerciseId === exercise.id)
+          .sort((a, b) => b.roundNumber - a.roundNumber)[0]
+
+        if (!latest) {
+          continue
+        }
+
+        newRows.push({
+          ...latest,
+          rowKey: `${exercise.id}-${nextRound}`,
+          roundNumber: nextRound,
+          blockRounds: newBlockRounds,
+          setNumber: undefined,
+          notes: undefined,
+          actualReps: undefined,
+          actualDurationSeconds: undefined,
+          actualDistance: undefined,
+          ...prescribedValuesForRow(latest),
+        })
+      }
+
+      return [...updated, ...newRows]
+    })
+  }
+
+  function dropBlockRound(blockId: string) {
+    const block = workout.blocks.find((candidate) => candidate.id === blockId)
+    if (!block) {
+      return
+    }
+
+    const blockExerciseIds = new Set(block.exercises.map((exercise) => exercise.id))
+
+    setRows((current) => {
+      const blockRows = current.filter((row) =>
+        blockExerciseIds.has(row.blockExerciseId)
+      )
+      const maxRound = blockRows.reduce(
+        (max, row) => Math.max(max, row.roundNumber),
+        0
+      )
+
+      if (maxRound <= 1) {
+        return current
+      }
+
+      const lastRoundRows = blockRows.filter((row) => row.roundNumber === maxRound)
+      const hasCustomValues = lastRoundRows.some((row) => !rowMatchesPrescription(row))
+      if (
+        hasCustomValues &&
+        !window.confirm(
+          `Drop round ${maxRound}? Logged values for that round will be discarded.`
+        )
+      ) {
+        return current
+      }
+
+      const newBlockRounds = maxRound - 1
+      return current
+        .filter(
+          (row) =>
+            !(
+              blockExerciseIds.has(row.blockExerciseId) &&
+              row.roundNumber === maxRound
+            )
+        )
+        .map((row) =>
+          blockExerciseIds.has(row.blockExerciseId)
+            ? { ...row, blockRounds: newBlockRounds }
+            : row
+        )
+    })
   }
 
   function startEditing() {
@@ -527,19 +769,14 @@ export function WorkoutLogForm({
 
   function openSwapDialog(row: LogRow) {
     setSwapDraft({
-      rowKey: row.rowKey,
       blockExerciseId: row.blockExerciseId,
-      roundNumber: row.roundNumber,
-      blockRounds: row.blockRounds,
       muscleGroup: row.muscleGroup,
-      plannedExerciseId: row.plannedExerciseId,
       currentExerciseId: row.exerciseId,
       originalExerciseId: row.originalExerciseId ?? row.plannedExerciseId,
       originalExerciseName: row.originalExerciseName,
     })
     setSwapExerciseId("")
     setSwapReason("")
-    setSwapScope(row.blockRounds > 1 ? "all" : "current")
   }
 
   function applySwap() {
@@ -556,12 +793,7 @@ export function WorkoutLogForm({
 
     setRows((current) =>
       current.map((row) => {
-        const matchesRow =
-          swapScope === "all"
-            ? row.blockExerciseId === swapDraft.blockExerciseId
-            : row.rowKey === swapDraft.rowKey
-
-        if (!matchesRow) {
+        if (row.blockExerciseId !== swapDraft.blockExerciseId) {
           return row
         }
 
@@ -625,7 +857,11 @@ export function WorkoutLogForm({
       lastLoggedByExerciseId={lastLoggedByExerciseId}
       onNotesChange={setNotes}
       onRowChange={updateRow}
+      onExerciseRowsChange={updateExerciseRows}
+      onExercisePrescriptionModeChange={changeExercisePrescriptionMode}
       onResetRows={resetRowsToPrescription}
+      onAddBlockRound={addBlockRound}
+      onDropBlockRound={dropBlockRound}
       onStartEdit={allowEdit ? startEditing : undefined}
       onSwapExercise={allowExerciseSwap && !isReadOnly ? openSwapDialog : undefined}
     />
@@ -777,8 +1013,8 @@ export function WorkoutLogForm({
           <DialogHeader>
             <DialogTitle>Swap exercise</DialogTitle>
             <DialogDescription>
-              Choose a replacement in the same muscle group and a reason for the
-              swap.
+              Replace this exercise for every round in the circuit. Choose a
+              replacement in the same muscle group and a reason for the swap.
             </DialogDescription>
           </DialogHeader>
 
@@ -827,34 +1063,6 @@ export function WorkoutLogForm({
                 </SelectContent>
               </Select>
             </div>
-
-            {swapDraft && swapDraft.blockRounds > 1 ? (
-              <div className="space-y-2">
-                <Label>Apply to</Label>
-                <RadioGroup
-                  value={swapScope}
-                  onValueChange={(value) => {
-                    if (value === "current" || value === "all") {
-                      setSwapScope(value)
-                    }
-                  }}
-                  className="gap-3 rounded-md border p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <RadioGroupItem value="current" id="swap-scope-current" />
-                    <Label htmlFor="swap-scope-current" className="font-normal">
-                      This round only (round {swapDraft.roundNumber})
-                    </Label>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <RadioGroupItem value="all" id="swap-scope-all" />
-                    <Label htmlFor="swap-scope-all" className="font-normal">
-                      Every round in this circuit
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
-            ) : null}
           </div>
 
           <DialogFooter>
@@ -922,7 +1130,11 @@ function LogFields({
   lastLoggedByExerciseId = {},
   onNotesChange,
   onRowChange,
+  onExerciseRowsChange,
+  onExercisePrescriptionModeChange,
   onResetRows,
+  onAddBlockRound,
+  onDropBlockRound,
   onStartEdit,
   onSwapExercise,
 }: {
@@ -934,12 +1146,23 @@ function LogFields({
   lastLoggedByExerciseId?: Record<string, LastLoggedSet[]>
   onNotesChange: (value: string) => void
   onRowChange: (rowKey: string, updates: Partial<LogRow>) => void
+  onExerciseRowsChange: (blockExerciseId: string, updates: Partial<LogRow>) => void
+  onExercisePrescriptionModeChange: (
+    blockExerciseId: string,
+    mode: PrescriptionModeValue
+  ) => void
   onResetRows: (rowKeys: string[]) => void
+  onAddBlockRound: (blockId: string) => void
+  onDropBlockRound: (blockId: string) => void
   onStartEdit?: () => void
   onSwapExercise?: (row: LogRow) => void
 }) {
   return (
     <>
+      {workout.notes ? (
+        <p className="text-sm text-muted-foreground">{workout.notes}</p>
+      ) : null}
+
       {workout.blocks.map((block) => {
         const blockRows = rows.filter((row) =>
           block.exercises.some((exercise) => exercise.id === row.blockExerciseId)
@@ -950,15 +1173,23 @@ function LogFields({
         }
 
         const allPrescribed = blockRows.every(rowMatchesPrescription)
+        const currentRounds = blockRows.reduce(
+          (max, row) => Math.max(max, row.roundNumber),
+          0
+        )
+        const exerciseGroups = groupRowsByBlockExercise(block.exercises, blockRows)
 
         return (
           <div key={block.id} className="space-y-3 rounded-lg border p-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <p className="font-medium">{block.name ?? "Workout block"}</p>
-                <Badge variant="secondary" className="mt-1">
-                  {workoutBlockTypeLabels[block.blockType]}
-                </Badge>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  <Badge variant="secondary">
+                    {workoutBlockTypeLabels[block.blockType]}
+                  </Badge>
+                  <Badge variant="outline">{currentRounds} rounds</Badge>
+                </div>
               </div>
 
               {isReadOnly ? (
@@ -974,49 +1205,80 @@ function LogFields({
                   </Button>
                 ) : null
               ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-9"
-                  disabled={allPrescribed}
-                  onClick={() => onResetRows(blockRows.map((row) => row.rowKey))}
-                >
-                  Log block as prescribed
-                </Button>
+                <div className="flex flex-wrap gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    onClick={() => onAddBlockRound(block.id)}
+                  >
+                    <PlusIcon />
+                    Add round
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    disabled={currentRounds <= 1}
+                    onClick={() => onDropBlockRound(block.id)}
+                  >
+                    <MinusIcon />
+                    Drop round
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    disabled={allPrescribed}
+                    onClick={() => onResetRows(blockRows.map((row) => row.rowKey))}
+                  >
+                    Log block as prescribed
+                  </Button>
+                </div>
               )}
             </div>
 
+            {block.notes ? (
+              <p className="text-sm text-muted-foreground">{block.notes}</p>
+            ) : null}
+
             <div className="space-y-3">
-              {blockRows.map((row) => {
-                const asPrescribed = rowMatchesPrescription(row)
-                const swapped = rowHasSwap(row)
-                const lastLogged = resolveLastLogged(
-                  lastLoggedByExerciseId[row.exerciseId],
-                  row.roundNumber
+              {exerciseGroups.map(({ blockExerciseId, rows: exerciseRows }) => {
+                const leadRow = exerciseRows[0]!
+                const swapped = rowHasSwap(leadRow)
+                const lastLoggedSummary = resolveLastLogged(
+                  lastLoggedByExerciseId[leadRow.exerciseId],
+                  leadRow.roundNumber
                 )
-                const lastLabel = lastLogged
-                  ? formatLastLoggedLabel(lastLogged, row.prescriptionMode)
+                const lastLabel = lastLoggedSummary
+                  ? formatLastLoggedLabel(
+                      lastLoggedSummary,
+                      leadRow.prescriptionMode
+                    )
                   : null
+                const primaryLabel = primaryMetricLabel(leadRow.prescriptionMode)
 
                 return (
                   <div
-                    key={row.rowKey}
-                    className={cn(
-                      "rounded-md border bg-background p-3",
-                      asPrescribed && "border-primary/20"
-                    )}
+                    key={blockExerciseId}
+                    className="space-y-3 rounded-md border bg-background p-3"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-medium">{row.exerciseName}</p>
+                          <p className="text-sm font-medium">{leadRow.exerciseName}</p>
                           {swapped ? (
                             <Badge variant="secondary">Swapped</Badge>
                           ) : null}
+                          {leadRow.tempo && isReadOnly ? (
+                            <Badge variant="outline">Tempo {leadRow.tempo}</Badge>
+                          ) : null}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Round {row.roundNumber} · {row.targetLabel}
+                          Planned {leadRow.targetLabel}
                         </p>
                         {lastLabel ? (
                           <p className="mt-1 text-xs text-muted-foreground">
@@ -1025,160 +1287,326 @@ function LogFields({
                         ) : null}
                         {swapped ? (
                           <p className="mt-1 text-xs text-muted-foreground">
-                            From {row.originalExerciseName}
-                            {row.swapReason
-                              ? ` · ${exerciseSwapReasonLabels[row.swapReason]}`
+                            From {leadRow.originalExerciseName}
+                            {leadRow.swapReason
+                              ? ` · ${exerciseSwapReasonLabels[leadRow.swapReason]}`
                               : ""}
+                          </p>
+                        ) : null}
+                        {isReadOnly && leadRow.accessories ? (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Accessories: {leadRow.accessories}
+                          </p>
+                        ) : null}
+                        {isReadOnly && leadRow.cues ? (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {leadRow.cues}
                           </p>
                         ) : null}
                       </div>
 
-                      <div className="flex shrink-0 flex-wrap gap-1">
-                        {allowExerciseSwap && onSwapExercise ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-8"
-                            onClick={() => onSwapExercise(row)}
-                          >
-                            <ArrowsLeftRightIcon />
-                            Swap
-                          </Button>
-                        ) : null}
-                        {isReadOnly ? null : (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-8"
-                            disabled={asPrescribed}
-                            onClick={() => onResetRows([row.rowKey])}
-                          >
-                            As prescribed
-                          </Button>
-                        )}
-                      </div>
+                      {allowExerciseSwap && onSwapExercise ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8"
+                          onClick={() => onSwapExercise(leadRow)}
+                        >
+                          <ArrowsLeftRightIcon />
+                          Swap
+                        </Button>
+                      ) : null}
                     </div>
 
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      {row.prescriptionMode === "reps" ? (
-                        <NumericStepper
-                          id={`${row.rowKey}-reps`}
-                          label="Reps"
-                          targetHint={row.targetReps ? String(row.targetReps) : null}
-                          lastHint={
-                            lastLogged?.actualReps != null
-                              ? String(lastLogged.actualReps)
-                              : null
-                          }
-                          value={row.actualReps}
-                          onChange={(actualReps) => onRowChange(row.rowKey, { actualReps })}
-                          parseInput={(raw) => parseLogIntInput(raw)}
-                          clampValue={(value) => clampLogInt(value)}
-                          matchesTarget={
-                            row.targetReps != null && row.actualReps === row.targetReps
-                          }
-                          readOnly={isReadOnly}
-                        />
-                      ) : row.prescriptionMode === "time" ? (
-                        <NumericStepper
-                          id={`${row.rowKey}-duration`}
-                          label="Duration (sec)"
-                          targetHint={
-                            row.targetDurationSeconds
-                              ? String(row.targetDurationSeconds)
-                              : null
-                          }
-                          lastHint={
-                            lastLogged?.actualDurationSeconds != null
-                              ? String(lastLogged.actualDurationSeconds)
-                              : null
-                          }
-                          value={row.actualDurationSeconds}
-                          onChange={(actualDurationSeconds) =>
-                            onRowChange(row.rowKey, { actualDurationSeconds })
-                          }
-                          step={5}
-                          parseInput={(raw) => parseLogIntInput(raw)}
-                          clampValue={(value) => clampLogInt(value)}
-                          matchesTarget={
-                            row.targetDurationSeconds != null &&
-                            row.actualDurationSeconds === row.targetDurationSeconds
-                          }
-                          readOnly={isReadOnly}
-                        />
-                      ) : (
-                        <NumericStepper
-                          id={`${row.rowKey}-distance`}
-                          label="Distance (yds)"
-                          targetHint={
-                            row.targetDistance
-                              ? String(row.targetDistance)
-                              : null
-                          }
-                          lastHint={
-                            lastLogged?.actualDistance != null
-                              ? String(lastLogged.actualDistance)
-                              : null
-                          }
-                          value={row.actualDistance}
-                          onChange={(actualDistance) =>
-                            onRowChange(row.rowKey, { actualDistance })
-                          }
-                          step={5}
-                          parseInput={(raw) => parseLogIntInput(raw)}
-                          clampValue={(value) => clampLogInt(value)}
-                          matchesTarget={
-                            row.targetDistance != null &&
-                            row.actualDistance === row.targetDistance
-                          }
-                          readOnly={isReadOnly}
-                        />
-                      )}
+                    {isReadOnly ? null : (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`${blockExerciseId}-mode`}>Mode</Label>
+                          <Select
+                            value={leadRow.prescriptionMode}
+                            onValueChange={(value) =>
+                              onExercisePrescriptionModeChange(
+                                blockExerciseId,
+                                value as PrescriptionModeValue
+                              )
+                            }
+                          >
+                            <SelectTrigger
+                              id={`${blockExerciseId}-mode`}
+                              className="w-full"
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {prescriptionModeValues.map((mode) => (
+                                <SelectItem key={mode} value={mode}>
+                                  {prescriptionModeLabels[mode]}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`${blockExerciseId}-tempo`}>Tempo</Label>
+                          <Input
+                            id={`${blockExerciseId}-tempo`}
+                            value={leadRow.tempo ?? ""}
+                            onChange={(event) =>
+                              onExerciseRowsChange(blockExerciseId, {
+                                tempo: event.target.value || undefined,
+                              })
+                            }
+                            placeholder="3-1-2-0"
+                          />
+                        </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label htmlFor={`${blockExerciseId}-accessories`}>
+                            Accessories
+                          </Label>
+                          <Input
+                            id={`${blockExerciseId}-accessories`}
+                            value={leadRow.accessories ?? ""}
+                            onChange={(event) =>
+                              onExerciseRowsChange(blockExerciseId, {
+                                accessories: event.target.value || undefined,
+                              })
+                            }
+                            placeholder="Wide grip, V-bar, etc."
+                          />
+                        </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label htmlFor={`${blockExerciseId}-cues`}>Cues</Label>
+                          <Input
+                            id={`${blockExerciseId}-cues`}
+                            value={leadRow.cues ?? ""}
+                            onChange={(event) =>
+                              onExerciseRowsChange(blockExerciseId, {
+                                cues: event.target.value || undefined,
+                              })
+                            }
+                            placeholder="Brace, drive through heels..."
+                          />
+                        </div>
+                      </div>
+                    )}
 
-                      <NumericStepper
-                        id={`${row.rowKey}-rpe`}
-                        label="RPE"
-                        targetHint={row.targetRpe ? String(row.targetRpe) : null}
-                        lastHint={
-                          lastLogged?.actualRpe != null
-                            ? String(lastLogged.actualRpe)
-                            : null
-                        }
-                        value={row.actualRpe}
-                        onChange={(actualRpe) => onRowChange(row.rowKey, { actualRpe })}
-                        min={1}
-                        max={10}
-                        parseInput={(raw) => parseLogIntInput(raw, { min: 1, max: 10 })}
-                        clampValue={(value) => clampLogRpe(value)}
-                        matchesTarget={row.targetRpe != null && row.actualRpe === row.targetRpe}
-                        readOnly={isReadOnly}
-                      />
+                    <div className="space-y-2">
+                      <div className="hidden grid-cols-[2rem_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2 px-1 text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground sm:grid">
+                        <span>#</span>
+                        <span>{primaryLabel}</span>
+                        <span>RPE</span>
+                        <span>Lbs</span>
+                        <span className="sr-only">Actions</span>
+                      </div>
 
-                      <NumericStepper
-                        id={`${row.rowKey}-weight`}
-                        label="Weight (lbs)"
-                        targetHint={
-                          row.targetWeight != null ? formatWeight(row.targetWeight) : null
-                        }
-                        lastHint={
-                          lastLogged?.actualWeight != null
-                            ? formatWeight(lastLogged.actualWeight)
-                            : null
-                        }
-                        value={row.actualWeight}
-                        onChange={(actualWeight) => onRowChange(row.rowKey, { actualWeight })}
-                        step={0.5}
-                        inputMode="decimal"
-                        formatDisplay={formatWeight}
-                        parseInput={parseWeightInput}
-                        clampValue={snapWeight}
-                        matchesTarget={
-                          row.targetWeight != null && row.actualWeight === row.targetWeight
-                        }
-                        readOnly={isReadOnly}
-                      />
+                      {exerciseRows.map((row) => {
+                        const asPrescribed = rowMatchesPrescription(row)
+                        const lastLogged = resolveLastLogged(
+                          lastLoggedByExerciseId[row.exerciseId],
+                          row.roundNumber
+                        )
+
+                        return (
+                          <div
+                            key={row.rowKey}
+                            className={cn(
+                              "rounded-md border bg-muted/10 p-2",
+                              asPrescribed && "border-primary/20 bg-primary/5"
+                            )}
+                          >
+                            <div className="grid grid-cols-[2rem_minmax(0,1fr)] items-start gap-2 sm:grid-cols-[2rem_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center">
+                              <div className="flex h-9 w-8 items-center justify-center rounded-full border bg-background text-xs font-medium tabular-nums">
+                                {row.roundNumber}
+                              </div>
+
+                              <div className="min-w-0 space-y-2 sm:contents">
+                                <div className="min-w-0">
+                                  <p className="mb-1 text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground sm:hidden">
+                                    {primaryLabel}
+                                  </p>
+                                  {row.prescriptionMode === "reps" ? (
+                                    <NumericStepper
+                                      id={`${row.rowKey}-reps`}
+                                      label="Reps"
+                                      hideLabel
+                                      compact
+                                      targetHint={
+                                        row.targetReps ? String(row.targetReps) : null
+                                      }
+                                      lastHint={
+                                        lastLogged?.actualReps != null
+                                          ? String(lastLogged.actualReps)
+                                          : null
+                                      }
+                                      value={row.actualReps}
+                                      onChange={(actualReps) =>
+                                        onRowChange(row.rowKey, { actualReps })
+                                      }
+                                      parseInput={(raw) => parseLogIntInput(raw)}
+                                      clampValue={(value) => clampLogInt(value)}
+                                      matchesTarget={
+                                        row.targetReps != null &&
+                                        row.actualReps === row.targetReps
+                                      }
+                                      readOnly={isReadOnly}
+                                    />
+                                  ) : row.prescriptionMode === "time" ? (
+                                    <NumericStepper
+                                      id={`${row.rowKey}-duration`}
+                                      label="Duration (sec)"
+                                      hideLabel
+                                      compact
+                                      targetHint={
+                                        row.targetDurationSeconds
+                                          ? String(row.targetDurationSeconds)
+                                          : null
+                                      }
+                                      lastHint={
+                                        lastLogged?.actualDurationSeconds != null
+                                          ? String(lastLogged.actualDurationSeconds)
+                                          : null
+                                      }
+                                      value={row.actualDurationSeconds}
+                                      onChange={(actualDurationSeconds) =>
+                                        onRowChange(row.rowKey, {
+                                          actualDurationSeconds,
+                                        })
+                                      }
+                                      step={5}
+                                      parseInput={(raw) => parseLogIntInput(raw)}
+                                      clampValue={(value) => clampLogInt(value)}
+                                      matchesTarget={
+                                        row.targetDurationSeconds != null &&
+                                        row.actualDurationSeconds ===
+                                          row.targetDurationSeconds
+                                      }
+                                      readOnly={isReadOnly}
+                                    />
+                                  ) : (
+                                    <NumericStepper
+                                      id={`${row.rowKey}-distance`}
+                                      label="Distance (yds)"
+                                      hideLabel
+                                      compact
+                                      targetHint={
+                                        row.targetDistance
+                                          ? String(row.targetDistance)
+                                          : null
+                                      }
+                                      lastHint={
+                                        lastLogged?.actualDistance != null
+                                          ? String(lastLogged.actualDistance)
+                                          : null
+                                      }
+                                      value={row.actualDistance}
+                                      onChange={(actualDistance) =>
+                                        onRowChange(row.rowKey, { actualDistance })
+                                      }
+                                      step={5}
+                                      parseInput={(raw) => parseLogIntInput(raw)}
+                                      clampValue={(value) => clampLogInt(value)}
+                                      matchesTarget={
+                                        row.targetDistance != null &&
+                                        row.actualDistance === row.targetDistance
+                                      }
+                                      readOnly={isReadOnly}
+                                    />
+                                  )}
+                                </div>
+
+                                <div className="min-w-0">
+                                  <p className="mb-1 text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground sm:hidden">
+                                    RPE
+                                  </p>
+                                  <NumericStepper
+                                    id={`${row.rowKey}-rpe`}
+                                    label="RPE"
+                                    hideLabel
+                                    compact
+                                    targetHint={
+                                      row.targetRpe ? String(row.targetRpe) : null
+                                    }
+                                    lastHint={
+                                      lastLogged?.actualRpe != null
+                                        ? String(lastLogged.actualRpe)
+                                        : null
+                                    }
+                                    value={row.actualRpe}
+                                    onChange={(actualRpe) =>
+                                      onRowChange(row.rowKey, { actualRpe })
+                                    }
+                                    min={1}
+                                    max={10}
+                                    parseInput={(raw) =>
+                                      parseLogIntInput(raw, { min: 1, max: 10 })
+                                    }
+                                    clampValue={(value) => clampLogRpe(value)}
+                                    matchesTarget={
+                                      row.targetRpe != null &&
+                                      row.actualRpe === row.targetRpe
+                                    }
+                                    readOnly={isReadOnly}
+                                  />
+                                </div>
+
+                                <div className="min-w-0">
+                                  <p className="mb-1 text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground sm:hidden">
+                                    Lbs
+                                  </p>
+                                  <NumericStepper
+                                    id={`${row.rowKey}-weight`}
+                                    label="Weight (lbs)"
+                                    hideLabel
+                                    compact
+                                    targetHint={
+                                      row.targetWeight != null
+                                        ? formatWeight(row.targetWeight)
+                                        : null
+                                    }
+                                    lastHint={
+                                      lastLogged?.actualWeight != null
+                                        ? formatWeight(lastLogged.actualWeight)
+                                        : null
+                                    }
+                                    value={row.actualWeight}
+                                    onChange={(actualWeight) =>
+                                      onRowChange(row.rowKey, { actualWeight })
+                                    }
+                                    step={0.5}
+                                    inputMode="decimal"
+                                    formatDisplay={formatWeight}
+                                    parseInput={parseWeightInput}
+                                    clampValue={snapWeight}
+                                    matchesTarget={
+                                      row.targetWeight != null &&
+                                      row.actualWeight === row.targetWeight
+                                    }
+                                    readOnly={isReadOnly}
+                                  />
+                                </div>
+                              </div>
+
+                              {isReadOnly ? (
+                                <div className="col-span-2 sm:col-span-1" />
+                              ) : (
+                                <div className="col-span-2 flex justify-end sm:col-span-1">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8"
+                                    disabled={asPrescribed}
+                                    onClick={() => onResetRows([row.rowKey])}
+                                  >
+                                    As prescribed
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )

@@ -1,12 +1,23 @@
 import { z } from "zod"
 
-import { ExerciseSwapReason } from "../../db/schema"
+import {
+  ExercisePrescriptionMode,
+  ExerciseSwapReason,
+} from "../../db/schema"
 
 export const LOG_FIELD_MAX = 999
 
 export const exerciseSwapReasonValues = ExerciseSwapReason.enumValues
+export const prescriptionModeValues = ExercisePrescriptionMode.enumValues
 
 export type ExerciseSwapReasonValue = (typeof exerciseSwapReasonValues)[number]
+export type PrescriptionModeValue = (typeof prescriptionModeValues)[number]
+
+const optionalString = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => (value ? value : undefined))
 
 export const exerciseSwapReasonLabels: Record<ExerciseSwapReasonValue, string> = {
   client_needs_regression: "Client needs regression",
@@ -82,6 +93,10 @@ export const workoutLogEntrySchema = z.object({
   swapReason: z.enum(exerciseSwapReasonValues).optional(),
   roundNumber: z.number().int().min(1).default(1),
   setNumber: optionalInt,
+  prescriptionMode: z.enum(prescriptionModeValues).optional(),
+  tempo: optionalString,
+  cues: optionalString,
+  accessories: optionalString,
   actualReps: optionalInt,
   actualDistance: optionalInt,
   actualDurationSeconds: optionalInt,
@@ -90,7 +105,7 @@ export const workoutLogEntrySchema = z.object({
     z.number().int().min(1).max(10).optional()
   ),
   actualWeight: optionalFloat,
-  notes: z.string().trim().optional(),
+  notes: optionalString,
 })
 
 export const workoutLogPayloadSchema = z.object({
