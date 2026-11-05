@@ -347,6 +347,11 @@ export const WorkoutLogEntry = pgTable('WorkoutLogEntry', {
   swapReason: ExerciseSwapReason('swapReason'),
   roundNumber: integer('roundNumber').notNull().default(1),
   setNumber: integer('setNumber'),
+  /** Session override; null falls back to the planned block exercise. */
+  prescriptionMode: ExercisePrescriptionMode('prescriptionMode'),
+  tempo: varchar('tempo', { length: 32 }),
+  cues: text('cues'),
+  accessories: text('accessories'),
   actualReps: integer('actualReps'),
   actualDistance: integer('actualDistance'),
   actualDurationSeconds: integer('actualDurationSeconds'),
