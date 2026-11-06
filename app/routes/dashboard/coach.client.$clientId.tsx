@@ -4,6 +4,7 @@ import {
   PersonSimpleRunIcon,
   ClockCounterClockwiseIcon,
   PlusIcon,
+  TargetIcon,
 } from "@phosphor-icons/react"
 import {
   Link,
@@ -44,6 +45,7 @@ import {
   deleteCoachInBodyScan,
   getCoachInBodyScansForMember,
 } from "../../../models/inbody.server"
+import { getMemberGoalsForCoach } from "../../../models/member-profile.server"
 import {
   getPreviousCompletedLogForClient,
   getUpcomingWorkoutForClient,
@@ -65,15 +67,21 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
   const searchParams = new URL(request.url).searchParams
 
-  const [upcomingWorkout, previousWorkout, loggedExercises, inBodyScans] =
-    await Promise.all([
-      getUpcomingWorkoutForClient(user.id, params.clientId),
-      getPreviousCompletedLogForClient(user.id, params.clientId),
-      getLoggedExercisesForMember(params.clientId),
-      getCoachInBodyScansForMember(user.id, params.clientId, "desc"),
-    ])
+  const [
+    upcomingWorkout,
+    previousWorkout,
+    loggedExercises,
+    inBodyScans,
+    goals,
+  ] = await Promise.all([
+    getUpcomingWorkoutForClient(user.id, params.clientId),
+    getPreviousCompletedLogForClient(user.id, params.clientId),
+    getLoggedExercisesForMember(params.clientId),
+    getCoachInBodyScansForMember(user.id, params.clientId, "desc"),
+    getMemberGoalsForCoach(user.id, params.clientId),
+  ])
 
-  if (!inBodyScans) {
+  if (!inBodyScans || goals === null) {
     throw new Response("Client not found", { status: 404 })
   }
 
@@ -105,6 +113,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     trendSlides,
     trendIndex,
     inBodyScans,
+    goals,
   }
 }
 
@@ -146,6 +155,7 @@ export default function CoachClientDashboard() {
     trendSlides,
     trendIndex,
     inBodyScans,
+    goals,
   } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
 
@@ -169,6 +179,41 @@ export default function CoachClientDashboard() {
           </Badge>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <TargetIcon className="size-5 text-primary" />
+          <CardTitle className="text-lg">Goals</CardTitle>
+          <CardDescription>
+            S.M.A.R.T. fitness goals from this client&apos;s profile.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {goals.length > 0 ? (
+            <ol className="space-y-3">
+              {goals.map((goal, index) => (
+                <li
+                  key={goal.id}
+                  className="rounded-md border p-4 text-sm leading-relaxed"
+                >
+                  <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Goal {index + 1}
+                  </span>
+                  {goal.statement}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <div className="rounded-md border border-dashed p-6 text-center">
+              <p className="text-sm font-medium">No goals on file yet</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Goals will appear here once the client adds them to their
+                profile.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
