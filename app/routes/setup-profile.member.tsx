@@ -5,7 +5,6 @@ import {
   useLoaderData,
   useNavigation,
 } from "react-router"
-import { z } from "zod"
 
 import type { Route } from "./+types/setup-profile.member"
 import { FitizenLogo } from "~/components/fitizen-logo"
@@ -32,53 +31,20 @@ import {
 } from "~/components/ui/select"
 import { Textarea } from "~/components/ui/textarea"
 import {
+  flattenMemberProfileFieldErrors,
+  goalsStepSchema,
+  parseMemberProfileFormData,
+  SEX_VALUES,
+  sexLabels,
+  type SexValue,
+} from "~/lib/member-profile-form"
+import {
   completeSetupSession,
   redeemInviteOrRedirect,
   requirePendingSignupForRole,
   splitGoogleName,
 } from "~/lib/setup-profile.server"
 import { createMemberOnboarding } from "../../models/member-profile.server"
-
-const SEX_VALUES = ["male", "female", "other", "prefer_not_to_say"] as const
-
-const sexLabels: Record<(typeof SEX_VALUES)[number], string> = {
-  male: "Male",
-  female: "Female",
-  other: "Other",
-  prefer_not_to_say: "Prefer not to say",
-}
-
-const goalsStepSchema = z.object({
-  goals: z
-    .array(z.string().trim().min(1, "Goal cannot be empty").max(500))
-    .min(1, "Add at least one goal")
-    .max(3, "You can add up to 3 goals"),
-})
-
-const memberSetupSchema = z
-  .object({
-    goals: z
-      .array(z.string().trim().min(1, "Goal cannot be empty").max(500))
-      .min(1, "Add at least one goal")
-      .max(3, "You can add up to 3 goals"),
-    firstName: z.string().trim().min(1, "First name is required"),
-    lastName: z.string().trim().min(1, "Last name is required"),
-    age: z.coerce.number().int().min(1, "Enter a valid age").max(120),
-    heightFeet: z.coerce.number().int().min(3, "Enter a valid height").max(8),
-    heightInches: z.coerce
-      .number()
-      .min(0, "Enter a valid height")
-      .max(11.9, "Inches must be less than 12"),
-    weightLbs: z.coerce
-      .number()
-      .min(50, "Enter a valid weight")
-      .max(700, "Enter a valid weight"),
-    sex: z.enum(SEX_VALUES, { error: "Select an option" }),
-  })
-  .transform((data) => ({
-    ...data,
-    totalHeightInches: data.heightFeet * 12 + data.heightInches,
-  }))
 
 const STEPS = ["welcome", "goals", "registration"] as const
 type Step = (typeof STEPS)[number]
@@ -101,35 +67,11 @@ export async function action({ request }: Route.ActionArgs) {
   )
 
   const formData = await request.formData()
-  const goals = formData
-    .getAll("goals")
-    .map((value) => value.toString())
-    .filter((value) => value.trim().length > 0)
-
-  const parsed = memberSetupSchema.safeParse({
-    goals,
-    firstName: formData.get("firstName"),
-    lastName: formData.get("lastName"),
-    age: formData.get("age"),
-    heightFeet: formData.get("heightFeet"),
-    heightInches: formData.get("heightInches"),
-    weightLbs: formData.get("weightLbs"),
-    sex: formData.get("sex"),
-  })
+  const parsed = parseMemberProfileFormData(formData)
 
   if (!parsed.success) {
-    const fieldErrors = parsed.error.flatten().fieldErrors
     return {
-      fieldErrors: {
-        goals: fieldErrors.goals?.[0],
-        firstName: fieldErrors.firstName?.[0],
-        lastName: fieldErrors.lastName?.[0],
-        age: fieldErrors.age?.[0],
-        heightFeet: fieldErrors.heightFeet?.[0],
-        heightInches: fieldErrors.heightInches?.[0],
-        weightLbs: fieldErrors.weightLbs?.[0],
-        sex: fieldErrors.sex?.[0],
-      },
+      fieldErrors: flattenMemberProfileFieldErrors(parsed.error),
     }
   }
 
@@ -180,7 +122,7 @@ export default function SetupProfileMember() {
   const [goalError, setGoalError] = useState<string | undefined>()
   const [localFirstName, setLocalFirstName] = useState(firstName)
   const [localLastName, setLocalLastName] = useState(lastName)
-  const [sex, setSex] = useState<(typeof SEX_VALUES)[number] | undefined>()
+  const [sex, setSex] = useState<SexValue | undefined>()
 
   const stepIndex = STEPS.indexOf(step)
   const progressValue = ((stepIndex + 1) / STEPS.length) * 100
@@ -500,9 +442,7 @@ export default function SetupProfileMember() {
                     <Select
                       name="sex"
                       value={sex}
-                      onValueChange={(value) =>
-                        setSex(value as (typeof SEX_VALUES)[number])
-                      }
+                      onValueChange={(value) => setSex(value as SexValue)}
                       required
                       aria-invalid={
                         actionData?.fieldErrors?.sex ? true : undefined
