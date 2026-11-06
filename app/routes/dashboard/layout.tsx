@@ -17,6 +17,7 @@ const coachNavItems = [
 
 const memberNavItems = [
   { label: "Overview", to: "/dashboard/member" },
+  { label: "Profile", to: "/dashboard/member/profile" },
 ] as const
 
 export async function loader({ request }: Route.LoaderArgs) {

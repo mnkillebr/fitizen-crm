@@ -35,6 +35,7 @@ export default [
     route("member/composition/inbody/new", "routes/dashboard/member.composition.inbody.new.tsx"),
     route("member/composition/inbody/:scanId/edit", "routes/dashboard/member.composition.inbody.$scanId.edit.tsx"),
     route("member/composition", "routes/dashboard/member.composition.tsx"),
+    route("member/profile", "routes/dashboard/member.profile.tsx"),
     route("member", "routes/dashboard/member.tsx"),
   ]),
 ] satisfies RouteConfig

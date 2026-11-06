@@ -2,6 +2,7 @@ import {
   BarbellIcon,
   ChatCircleIcon,
   PersonSimpleRunIcon,
+  UserCircleIcon,
 } from "@phosphor-icons/react"
 import { Link, useOutletContext } from "react-router"
 
@@ -29,6 +30,13 @@ const memberSections = [
     description: "Track InBody scans and body composition over time.",
     href: "/dashboard/member/composition",
     cta: "View body composition",
+  },
+  {
+    icon: UserCircleIcon,
+    title: "Profile",
+    description: "Update your fitness goals and registration details.",
+    href: "/dashboard/member/profile",
+    cta: "Edit profile",
   },
   {
     icon: ChatCircleIcon,
