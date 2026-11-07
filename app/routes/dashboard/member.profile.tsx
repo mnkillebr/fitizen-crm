@@ -62,6 +62,7 @@ import {
   updateMemberGoals,
   updateMemberRegistrationDetails,
 } from "../../../models/member-profile.server"
+import { updateUserAvatarUrl } from "../../../models/user.server"
 
 type ActionData =
   | {
@@ -98,6 +99,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     : { heightFeet: undefined, heightInches: undefined }
 
   return {
+    avatarUrl: user.avatarUrl,
     email: bundle.user.email,
     firstName: bundle.user.firstName,
     lastName: bundle.user.lastName,
@@ -117,7 +119,7 @@ export async function action({ request }: Route.ActionArgs) {
 
   // Multipart bodies must be read once via parseFormData — do not call request.formData() first.
   if (contentType.includes("multipart/form-data")) {
-    let uploaded: CloudinaryUploadResult | null = null
+    const uploadedResults: CloudinaryUploadResult[] = []
 
     try {
       const formData = await parseFormData(
@@ -131,7 +133,7 @@ export async function action({ request }: Route.ActionArgs) {
           kind: "member_avatar",
           fieldName: "avatar",
           onUploaded: (result) => {
-            uploaded = result
+            uploadedResults.push(result)
           },
         })
       )
@@ -145,11 +147,23 @@ export async function action({ request }: Route.ActionArgs) {
         } satisfies ActionData
       }
 
+      const uploaded = uploadedResults[0]
       if (!uploaded) {
         return {
           intent: "upload-avatar" as const,
           ok: false as const,
           formError: "Choose an image file to upload.",
+        } satisfies ActionData
+      }
+
+      const avatarUrl = uploaded.thumbnailUrl ?? uploaded.secureUrl
+      const saved = await updateUserAvatarUrl(user.id, avatarUrl)
+
+      if (!saved) {
+        return {
+          intent: "upload-avatar" as const,
+          ok: false as const,
+          formError: "Upload succeeded but saving your avatar failed.",
         } satisfies ActionData
       }
 
@@ -359,37 +373,13 @@ export default function MemberProfile() {
               <CameraIcon className="size-5 text-primary" />
               <CardTitle className="text-lg">Profile photo</CardTitle>
               <CardDescription>
-                Upload an image to Cloudinary to validate signed server uploads.
+                Add or change your profile photo here.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {avatarSaved && uploadedAvatar ? (
                 <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-3 text-sm">
-                  <p className="text-primary">Avatar uploaded.</p>
-                  <div className="flex flex-wrap items-start gap-4">
-                    <img
-                      src={uploadedAvatar.thumbnailUrl ?? uploadedAvatar.secureUrl}
-                      alt="Uploaded avatar"
-                      className="size-24 rounded-full object-cover"
-                    />
-                    <div className="min-w-0 space-y-1 break-all text-xs text-muted-foreground">
-                      <p>public_id: {uploadedAvatar.publicId}</p>
-                      <p>
-                        <a
-                          href={uploadedAvatar.secureUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="underline"
-                        >
-                          {uploadedAvatar.secureUrl}
-                        </a>
-                      </p>
-                      <p>
-                        {uploadedAvatar.width}×{uploadedAvatar.height} ·{" "}
-                        {uploadedAvatar.format} · {uploadedAvatar.bytes} bytes
-                      </p>
-                    </div>
-                  </div>
+                  <p className="text-primary">Profile photo uploaded.</p>
                 </div>
               ) : null}
               {avatarFormError ? (
@@ -397,7 +387,7 @@ export default function MemberProfile() {
               ) : null}
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                {(previewUrl || uploadedAvatar) && (
+                {(previewUrl || uploadedAvatar) ? (
                   <img
                     src={
                       previewUrl ??
@@ -407,14 +397,20 @@ export default function MemberProfile() {
                     alt="Avatar preview"
                     className="size-20 rounded-full object-cover"
                   />
-                )}
+                ) : data.avatarUrl ? (
+                  <img
+                    src={data.avatarUrl}
+                    alt="Avatar"
+                    className="size-20 rounded-full object-cover"
+                  />
+                ) : null}
                 <div className="flex flex-col gap-2">
                   <Label
                     htmlFor="avatar"
                     className="flex cursor-pointer items-center gap-2 text-sm font-medium"
                   >
                     <CameraIcon className="size-4" />
-                    {selectedFile ? "Change profile photo" : "Choose profile photo"}
+                    {data.avatarUrl ||selectedFile ? "Change profile photo" : "Choose profile photo"}
                   </Label>
                   <Input
                     ref={fileInputRef}
