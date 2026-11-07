@@ -9,6 +9,7 @@ import { Link, useSearchParams } from "react-router"
 import type { StrengthTrendSlide } from "~/lib/strength-trends"
 import {
   createTrendsSearchParams,
+  isStrengthMetric,
   strengthMetricOptions,
   TREND_CARD_COUNT,
 } from "~/lib/strength-trends"
@@ -160,11 +161,7 @@ export function StrengthTrends({
                         <Select
                           value={slide.metric}
                           onValueChange={(metric) => {
-                            if (
-                              metric !== "volume" &&
-                              metric !== "duration" &&
-                              metric !== "e1rm"
-                            ) {
+                            if (!isStrengthMetric(metric)) {
                               return
                             }
                             updateSearchParams({
