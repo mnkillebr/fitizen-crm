@@ -1,5 +1,5 @@
 import { ArrowLeftIcon, CalendarBlankIcon, PlusIcon } from "@phosphor-icons/react"
-import { Link, useActionData, useLoaderData } from "react-router"
+import { Link, redirect, useActionData, useLoaderData } from "react-router"
 
 import type { Route } from "./+types/coach.workouts"
 import { WorkoutsTable } from "~/components/workouts-table"
@@ -17,6 +17,7 @@ import { getCoachClientRows } from "../../../models/client.server"
 import {
   assignTemplateToClient,
   deleteCoachTemplate,
+  duplicateCoachTemplate,
   getCoachWorkoutTemplates,
 } from "../../../models/workout-template.server"
 
@@ -58,6 +59,22 @@ export async function action({ request }: Route.ActionArgs) {
     }
 
     return { deletedWorkoutTitle: result.template.title }
+  }
+
+  if (intent === "duplicate-workout") {
+    const templateId = formData.get("templateId")?.toString()
+
+    if (!templateId) {
+      return { duplicateError: "Workout not found." }
+    }
+
+    const result = await duplicateCoachTemplate(user.id, templateId)
+
+    if (!result.ok) {
+      return { duplicateError: "Workout not found." }
+    }
+
+    return redirect(`/dashboard/workouts/${result.template.id}/edit`)
   }
 
   if (intent === "assign-workout") {
@@ -139,6 +156,12 @@ export default function CoachWorkouts() {
         </div>
       ) : null}
 
+      {actionData?.duplicateError ? (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          {actionData.duplicateError}
+        </div>
+      ) : null}
+
       {actionData?.assignError ? (
         <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
           {actionData.assignError}
@@ -160,7 +183,7 @@ export default function CoachWorkouts() {
                 Workout library
               </CardTitle>
               <CardDescription>
-                Edit, delete, or assign templates from your workout catalog.
+                Duplicate, edit, delete, or assign templates from your workout catalog.
               </CardDescription>
             </div>
             <Badge variant="secondary">{templates.length} total</Badge>

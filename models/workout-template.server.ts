@@ -312,6 +312,70 @@ export async function deleteCoachTemplate(coachId: string, templateId: string) {
   return { ok: true as const, template: deleted[0] }
 }
 
+const DUPLICATE_TITLE_SUFFIX = " copy"
+const WORKOUT_TITLE_MAX_LENGTH = 120
+
+function duplicateTemplateTitle(title: string) {
+  const maxBaseLength = WORKOUT_TITLE_MAX_LENGTH - DUPLICATE_TITLE_SUFFIX.length
+  const base =
+    title.length > maxBaseLength
+      ? title.slice(0, maxBaseLength).trimEnd()
+      : title
+
+  return `${base}${DUPLICATE_TITLE_SUFFIX}`
+}
+
+export type DuplicateTemplateResult =
+  | { ok: true; template: WorkoutTemplateSelect }
+  | { ok: false; reason: "not_found" }
+
+export async function duplicateCoachTemplate(
+  coachId: string,
+  templateId: string
+): Promise<DuplicateTemplateResult> {
+  const template = await getTemplateWithDetails(coachId, templateId)
+
+  if (!template) {
+    return { ok: false, reason: "not_found" }
+  }
+
+  const payload: WorkoutBuilderPayload = {
+    style: template.style,
+    title: duplicateTemplateTitle(template.title),
+    notes: template.notes ?? undefined,
+    blocks: template.blocks.map((block) => ({
+      blockType: block.blockType,
+      orderIndex: block.orderIndex,
+      name: block.name ?? undefined,
+      rounds: block.rounds ?? undefined,
+      restBetweenRoundsSeconds: block.restBetweenRoundsSeconds ?? undefined,
+      workDurationSeconds: block.workDurationSeconds ?? undefined,
+      restDurationSeconds: block.restDurationSeconds ?? undefined,
+      targetDurationSeconds: block.targetDurationSeconds ?? undefined,
+      targetIntensity: block.targetIntensity ?? undefined,
+      notes: block.notes ?? undefined,
+      exercises: block.exercises.map((exercise) => ({
+        exerciseId: exercise.exerciseId,
+        orderIndex: exercise.orderIndex,
+        prescriptionMode: exercise.prescriptionMode,
+        targetReps: exercise.targetReps ?? undefined,
+        targetDistance: exercise.targetDistance ?? undefined,
+        targetDurationSeconds: exercise.targetDurationSeconds ?? undefined,
+        targetRpe: exercise.targetRpe ?? undefined,
+        targetWeight: exercise.targetWeight ?? undefined,
+        tempo: exercise.tempo ?? undefined,
+        cues: exercise.cues ?? undefined,
+        accessories: exercise.accessories ?? undefined,
+        restAfterSeconds: exercise.restAfterSeconds ?? undefined,
+      })),
+    })),
+  }
+
+  const duplicated = await createWorkoutTemplate(coachId, payload)
+
+  return { ok: true, template: duplicated }
+}
+
 export type AssignTemplateResult =
   | { ok: true; workoutId: string }
   | { ok: false; reason: "not_found" | "client_not_found" }

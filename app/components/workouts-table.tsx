@@ -1,5 +1,6 @@
 import {
   CalendarBlankIcon,
+  CopySimpleIcon,
   EyeIcon,
   PencilSimpleIcon,
   TrashIcon,
@@ -166,6 +167,14 @@ export function WorkoutsTable({ templates, clients }: WorkoutsTableProps) {
                     Edit
                   </Link>
                 </Button>
+                <Form method="post">
+                  <input type="hidden" name="intent" value="duplicate-workout" />
+                  <input type="hidden" name="templateId" value={template.id} />
+                  <Button type="submit" variant="outline" size="sm">
+                    <CopySimpleIcon />
+                    Duplicate
+                  </Button>
+                </Form>
                 <Form
                   method="post"
                   onSubmit={(event) => {
