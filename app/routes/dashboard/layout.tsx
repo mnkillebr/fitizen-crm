@@ -2,13 +2,14 @@ import { SignOutIcon } from "@phosphor-icons/react"
 import { Form, Link, NavLink, Outlet, useLoaderData } from "react-router"
 
 import type { Route } from "./+types/layout"
+import { DarkModeToggle } from "~/components/dark-mode-toggle"
 import { FitizenLogo } from "~/components/fitizen-logo"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
+import { UserAvatar } from "~/components/user-avatar"
 import { requireUser, type SessionUser } from "~/lib/auth.server"
 import { signInRoleLabels } from "~/lib/sign-in"
 import { cn } from "~/lib/utils"
-import { DarkModeToggle } from "~/components/dark-mode-toggle"
 
 const coachNavItems = [
   { label: "Overview", to: "/dashboard/coach" },
@@ -68,6 +69,12 @@ export default function DashboardLayout() {
               <p className="text-xs text-muted-foreground">{user.email}</p>
             </div>
 
+            <UserAvatar
+              src={user.avatarUrl}
+              alt={`${user.firstName} ${user.lastName}`}
+              className="size-8"
+              iconClassName="size-8"
+            />
             <Badge variant="secondary">{signInRoleLabels[user.role]}</Badge>
             <DarkModeToggle />
             <Form method="post" action="/logout">

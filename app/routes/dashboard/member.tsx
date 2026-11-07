@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card"
+import { UserAvatar } from "~/components/user-avatar"
 import { requireRole, type SessionUser } from "~/lib/auth.server"
 
 const memberSections = [
@@ -56,13 +57,21 @@ export default function MemberDashboard() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Welcome back, {user.firstName}
-        </h1>
-        <p className="mt-2 text-muted-foreground">
-          Your training hub for upcoming workouts, history, and progress.
-        </p>
+      <div className="flex items-center gap-4">
+        <UserAvatar
+          src={user.avatarUrl}
+          alt={`${user.firstName} ${user.lastName}`}
+          className="size-14"
+          iconClassName="size-14"
+        />
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            Welcome back, {user.firstName}
+          </h1>
+          <p className="mt-2 text-muted-foreground">
+            Your training hub for upcoming workouts, history, and progress.
+          </p>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
