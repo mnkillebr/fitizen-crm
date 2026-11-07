@@ -115,6 +115,8 @@ export const User = pgTable('User', {
 	lastName: text('lastName').notNull(),
   age: integer(),
   email: varchar('email', { length: 255 }).notNull().unique(),
+  /** Cloudinary delivery URL for the user's profile photo. */
+  avatarUrl: text('avatarUrl'),
 	createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
 	updatedAt: timestamp('updatedAt', { precision: 3 }).notNull(),
 	role: Role('role').notNull(),

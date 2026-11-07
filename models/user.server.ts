@@ -73,3 +73,19 @@ export function getUserWithEmailAndProfileId(email: string, profileId: string) {
     .leftJoin(GoogleProfile, eq(User.id, GoogleProfile.userId))
     .where(and(eq(User.email, email), eq(GoogleProfile.profileId, profileId)));
 }
+
+export async function updateUserAvatarUrl(userId: string, avatarUrl: string) {
+  const [updated] = await db
+    .update(User)
+    .set({
+      avatarUrl,
+      updatedAt: new Date(),
+    })
+    .where(eq(User.id, userId))
+    .returning({
+      id: User.id,
+      avatarUrl: User.avatarUrl,
+    })
+
+  return updated ?? null
+}
