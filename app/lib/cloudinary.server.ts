@@ -7,7 +7,7 @@ import {
   type TransformationOptions,
   type UploadApiResponse,
 } from "cloudinary"
-import { randomUUID } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
 
 const DEFAULT_MAX_BYTES = 5 * 1024 * 1024
 
@@ -32,7 +32,8 @@ export type CloudinaryUploadResult = {
 export type MemberAvatarUploadResult = CloudinaryUploadResult
 
 type UploadKindContext = {
-  userId: string
+  /** Opaque, non-reversible subject key derived from the user id. */
+  subjectKey: string
 }
 
 type ImageKindConfig = {
@@ -45,6 +46,14 @@ type ImageKindConfig = {
   buildPublicId: (ctx: UploadKindContext) => string
   buildTags: (ctx: UploadKindContext) => string[]
   purpose: string
+}
+
+/**
+ * Stable opaque key for Cloudinary paths/tags so delivery URLs never embed
+ * the raw user UUID. SHA-256 truncated to 32 hex chars.
+ */
+export function hashUserIdForUpload(userId: string): string {
+  return createHash("sha256").update(userId).digest("hex").slice(0, 32)
 }
 
 const IMAGE_KIND_CONFIG: Record<CloudinaryImageKind, ImageKindConfig> = {
@@ -63,8 +72,9 @@ const IMAGE_KIND_CONFIG: Record<CloudinaryImageKind, ImageKindConfig> = {
         quality: "auto",
       },
     ],
-    buildPublicId: ({ userId }) => `users/${userId}/avatar`,
-    buildTags: ({ userId }) => ["member_avatar", `user_${userId}`],
+    // Deterministic id so re-uploads replace the previous avatar.
+    buildPublicId: ({ subjectKey }) => `avatars/${subjectKey}`,
+    buildTags: ({ subjectKey }) => ["member_avatar", `subject_${subjectKey}`],
     purpose: "member_avatar",
   },
   progress_photo: {
@@ -81,9 +91,8 @@ const IMAGE_KIND_CONFIG: Record<CloudinaryImageKind, ImageKindConfig> = {
         quality: "auto",
       },
     ],
-    buildPublicId: ({ userId }) =>
-      `users/${userId}/progress/${randomUUID()}`,
-    buildTags: ({ userId }) => ["progress_photo", `user_${userId}`],
+    buildPublicId: () => `progress/${randomUUID()}`,
+    buildTags: ({ subjectKey }) => ["progress_photo", `subject_${subjectKey}`],
     purpose: "progress_photo",
   },
   food_pic: {
@@ -99,8 +108,8 @@ const IMAGE_KIND_CONFIG: Record<CloudinaryImageKind, ImageKindConfig> = {
         quality: "auto",
       },
     ],
-    buildPublicId: ({ userId }) => `users/${userId}/food/${randomUUID()}`,
-    buildTags: ({ userId }) => ["food_pic", `user_${userId}`],
+    buildPublicId: () => `food/${randomUUID()}`,
+    buildTags: ({ subjectKey }) => ["food_pic", `subject_${subjectKey}`],
     purpose: "food_pic",
   },
 }
@@ -188,7 +197,9 @@ export async function uploadImage(
     )
   }
 
-  const ctx = { userId }
+  const ctx: UploadKindContext = {
+    subjectKey: hashUserIdForUpload(userId),
+  }
   const result = await new Promise<UploadApiResponse>((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
@@ -200,7 +211,8 @@ export async function uploadImage(
         faces: config.faces,
         eager: config.eager,
         context: {
-          owner_id: userId,
+          // Opaque subject key only — never put the raw user UUID in Cloudinary metadata.
+          subject_key: ctx.subjectKey,
           purpose: config.purpose,
         },
         tags: config.buildTags(ctx),
