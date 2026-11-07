@@ -10,6 +10,7 @@ export type SessionUser = {
   firstName: string
   lastName: string
   email: string
+  avatarUrl: string | null
   approvedCoach: boolean
   admin: boolean
 }
@@ -38,6 +39,7 @@ export async function getSessionUser(
     firstName: user.firstName,
     lastName: user.lastName,
     email: user.email,
+    avatarUrl: user.avatarUrl ?? null,
     approvedCoach: user.approvedCoach,
     admin: user.admin,
   }
