@@ -127,6 +127,13 @@
       "when": 1794001000000,
       "tag": "0017_workout_target_distance",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794002000000,
+      "tag": "0018_exercise_prescription_mode_distance",
+      "breakpoints": true
     }
   ]
 }
