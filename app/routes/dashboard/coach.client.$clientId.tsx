@@ -17,6 +17,7 @@ import {
 import type { Route } from "./+types/coach.client.$clientId"
 import { InBodyScanHistory } from "~/components/inbody-scan-history"
 import { InBodyTrends } from "~/components/inbody-trends"
+import { NutritionTargetSummary } from "~/components/nutrition-target-summary"
 import { StrengthTrends } from "~/components/strength-trends"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
@@ -47,6 +48,7 @@ import {
   getCoachInBodyScansForMember,
 } from "../../../models/inbody.server"
 import { getMemberGoalsForCoach } from "../../../models/member-profile.server"
+import { getMemberNutritionTarget } from "../../../models/nutrition.server"
 import {
   getPreviousCompletedLogForClient,
   getUpcomingWorkoutForClient,
@@ -74,12 +76,14 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     loggedExercises,
     inBodyScans,
     goals,
+    nutritionTarget,
   ] = await Promise.all([
     getUpcomingWorkoutForClient(user.id, params.clientId),
     getPreviousCompletedLogForClient(user.id, params.clientId),
     getLoggedExercisesForMember(params.clientId),
     getCoachInBodyScansForMember(user.id, params.clientId, "desc"),
     getMemberGoalsForCoach(user.id, params.clientId),
+    getMemberNutritionTarget(params.clientId),
   ])
 
   if (!inBodyScans || goals === null) {
@@ -115,6 +119,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     trendIndex,
     inBodyScans,
     goals,
+    nutritionTarget,
   }
 }
 
@@ -157,6 +162,7 @@ export default function CoachClientDashboard() {
     trendIndex,
     inBodyScans,
     goals,
+    nutritionTarget,
   } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
 
@@ -226,12 +232,13 @@ export default function CoachClientDashboard() {
               <BowlFoodIcon className="size-5 text-primary" />
               <CardTitle className="text-lg">Nutrition</CardTitle>
               <CardDescription>
-                Calculate TDEE and set daily macro nutrient targets for this
-                client.
+                {nutritionTarget
+                  ? "Saved daily calorie and macro targets for this client."
+                  : "Calculate TDEE and set daily macro nutrient targets for this client."}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-xs font-medium text-primary">Open nutrition</p>
+              <NutritionTargetSummary target={nutritionTarget} />
             </CardContent>
           </Card>
         </Link>

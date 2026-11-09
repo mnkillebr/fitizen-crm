@@ -5,9 +5,10 @@ import {
   PersonSimpleRunIcon,
   UserCircleIcon,
 } from "@phosphor-icons/react"
-import { Link, useOutletContext } from "react-router"
+import { Link, useLoaderData, useOutletContext } from "react-router"
 
 import type { Route } from "./+types/member"
+import { NutritionTargetSummary } from "~/components/nutrition-target-summary"
 import {
   Card,
   CardContent,
@@ -17,6 +18,7 @@ import {
 } from "~/components/ui/card"
 import { UserAvatar } from "~/components/user-avatar"
 import { requireRole, type SessionUser } from "~/lib/auth.server"
+import { getMemberNutritionTarget } from "../../../models/nutrition.server"
 
 const memberSections = [
   {
@@ -27,18 +29,18 @@ const memberSections = [
     cta: "View workouts",
   },
   {
-    icon: PersonSimpleRunIcon,
-    title: "Body Composition",
-    description: "Track InBody scans and body composition over time.",
-    href: "/dashboard/member/composition",
-    cta: "View body composition",
-  },
-  {
     icon: BowlFoodIcon,
     title: "Nutrition",
     description: "Calculate TDEE and set daily macro nutrient targets.",
     href: "/dashboard/member/nutrition",
     cta: "Open nutrition",
+  },
+  {
+    icon: PersonSimpleRunIcon,
+    title: "Body Composition",
+    description: "Track InBody scans and body composition over time.",
+    href: "/dashboard/member/composition",
+    cta: "View body composition",
   },
   {
     icon: UserCircleIcon,
@@ -55,13 +57,15 @@ const memberSections = [
 ] as const
 
 export async function loader({ request }: Route.LoaderArgs) {
-  await requireRole(request, "member")
+  const user = await requireRole(request, "member")
+  const nutritionTarget = await getMemberNutritionTarget(user.id)
 
-  return null
+  return { nutritionTarget }
 }
 
 export default function MemberDashboard() {
   const { user } = useOutletContext<{ user: SessionUser }>()
+  const { nutritionTarget } = useLoaderData<typeof loader>()
 
   return (
     <div className="space-y-8">
@@ -84,15 +88,22 @@ export default function MemberDashboard() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {memberSections.map((section) => {
+          const isNutrition = section.title === "Nutrition"
           const content = (
             <>
               <CardHeader>
                 <section.icon className="size-5 text-primary" />
                 <CardTitle className="text-lg">{section.title}</CardTitle>
-                <CardDescription>{section.description}</CardDescription>
+                <CardDescription>
+                  {isNutrition && nutritionTarget
+                    ? "Your saved daily calorie and macro targets."
+                    : section.description}
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                {"href" in section ? (
+                {isNutrition ? (
+                  <NutritionTargetSummary target={nutritionTarget} />
+                ) : "href" in section ? (
                   <p className="text-xs font-medium text-primary">{section.cta}</p>
                 ) : (
                   <p className="text-xs text-muted-foreground">Coming soon</p>
