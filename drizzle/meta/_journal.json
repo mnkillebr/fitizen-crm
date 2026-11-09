@@ -134,6 +134,13 @@
       "when": 1794002000000,
       "tag": "0018_exercise_prescription_mode_distance",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794170000000,
+      "tag": "0019_member_nutrition_target",
+      "breakpoints": true
     }
   ]
 }

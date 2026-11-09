@@ -102,6 +102,26 @@ export const ExerciseSwapReason = pgEnum('ExerciseSwapReason', [
   'client_needs_progression',
 ])
 
+/** Biological sex used by Mifflin–St Jeor (male/female only). */
+export const NutritionSex = pgEnum('NutritionSex', ['male', 'female'])
+
+export const NutritionActivityLevel = pgEnum('NutritionActivityLevel', [
+  'sedentary',
+  'light',
+  'moderate',
+  'active',
+  'very_active',
+  'extra_active',
+])
+
+export const NutritionGoal = pgEnum('NutritionGoal', [
+  'maintain',
+  'mild_loss',
+  'moderate_loss',
+  'mild_gain',
+  'moderate_gain',
+])
+
 export type ExercisePlaneOfMotionValue =
   (typeof ExercisePlaneOfMotion.enumValues)[number]
 export type ExerciseSupportValue = (typeof ExerciseSupport.enumValues)[number]
@@ -404,6 +424,35 @@ export const FitnessGoal = pgTable('FitnessGoal', {
 })
 
 /**
+ * Latest TDEE + macro targets for a member (1:1 with member User).
+ * Inputs are snapshotted so the saved plan stays explainable if profile metrics change.
+ */
+export const MemberNutritionTarget = pgTable('MemberNutritionTarget', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('userId')
+    .notNull()
+    .unique()
+    .references(() => User.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+  age: integer('age').notNull(),
+  sex: NutritionSex('sex').notNull(),
+  heightInches: real('heightInches').notNull(),
+  weightLbs: real('weightLbs').notNull(),
+  activityLevel: NutritionActivityLevel('activityLevel').notNull(),
+  goal: NutritionGoal('goal').notNull(),
+  bmr: real('bmr').notNull(),
+  tdee: real('tdee').notNull(),
+  targetCalories: real('targetCalories').notNull(),
+  proteinPercent: integer('proteinPercent').notNull(),
+  carbsPercent: integer('carbsPercent').notNull(),
+  fatPercent: integer('fatPercent').notNull(),
+  proteinGrams: integer('proteinGrams').notNull(),
+  carbsGrams: integer('carbsGrams').notNull(),
+  fatGrams: integer('fatGrams').notNull(),
+  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt', { precision: 3 }).notNull(),
+})
+
+/**
  * InBody composition scan for a member.
  * Weight and skeletal muscle mass are stored in lbs; BMR in kcal.
  */
@@ -435,6 +484,10 @@ export const UserRelations = relations(User, ({ one, many }) => ({
     fields: [User.id],
     references: [MemberProfile.userId],
   }),
+  nutritionTarget: one(MemberNutritionTarget, {
+    fields: [User.id],
+    references: [MemberNutritionTarget.userId],
+  }),
   fitnessGoals: many(FitnessGoal),
   coachedMembers: many(CoachMember, { relationName: 'coachMembers' }),
   coachAssignment: one(CoachMember, {
@@ -460,6 +513,16 @@ export const MemberProfileRelations = relations(MemberProfile, ({ one }) => ({
     references: [User.id],
   }),
 }));
+
+export const MemberNutritionTargetRelations = relations(
+  MemberNutritionTarget,
+  ({ one }) => ({
+    user: one(User, {
+      fields: [MemberNutritionTarget.userId],
+      references: [User.id],
+    }),
+  })
+)
 
 export const FitnessGoalRelations = relations(FitnessGoal, ({ one }) => ({
   user: one(User, {
