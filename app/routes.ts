@@ -19,6 +19,7 @@ export default [
     route("coach/client/:clientId/workout-log/:logId", "routes/dashboard/coach.client.$clientId.workout-log.$logId.tsx"),
     route("coach/client/:clientId/inbody/new", "routes/dashboard/coach.client.$clientId.inbody.new.tsx"),
     route("coach/client/:clientId/inbody/:scanId/edit", "routes/dashboard/coach.client.$clientId.inbody.$scanId.edit.tsx"),
+    route("coach/client/:clientId/nutrition", "routes/dashboard/coach.client.$clientId.nutrition.tsx"),
     route("coach/client/:clientId", "routes/dashboard/coach.client.$clientId.tsx"),
     route("exercises/new", "routes/dashboard/coach.exercises.new.tsx"),
     route("exercises/:exerciseId/edit", "routes/dashboard/coach.exercises.$exerciseId.edit.tsx"),
@@ -36,6 +37,7 @@ export default [
     route("member/composition/inbody/:scanId/edit", "routes/dashboard/member.composition.inbody.$scanId.edit.tsx"),
     route("member/composition", "routes/dashboard/member.composition.tsx"),
     route("member/profile", "routes/dashboard/member.profile.tsx"),
+    route("member/nutrition", "routes/dashboard/member.nutrition.tsx"),
     route("member", "routes/dashboard/member.tsx"),
   ]),
 ] satisfies RouteConfig

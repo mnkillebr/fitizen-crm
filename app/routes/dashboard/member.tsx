@@ -1,6 +1,7 @@
 import {
   BarbellIcon,
   ChatCircleIcon,
+  BowlFoodIcon,
   PersonSimpleRunIcon,
   UserCircleIcon,
 } from "@phosphor-icons/react"
@@ -31,6 +32,13 @@ const memberSections = [
     description: "Track InBody scans and body composition over time.",
     href: "/dashboard/member/composition",
     cta: "View body composition",
+  },
+  {
+    icon: BowlFoodIcon,
+    title: "Nutrition",
+    description: "Calculate TDEE and set daily macro nutrient targets.",
+    href: "/dashboard/member/nutrition",
+    cta: "Open nutrition",
   },
   {
     icon: UserCircleIcon,

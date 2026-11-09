@@ -1,6 +1,7 @@
 import {
   ArrowLeftIcon,
   CalendarBlankIcon,
+  BowlFoodIcon,
   PersonSimpleRunIcon,
   ClockCounterClockwiseIcon,
   PlusIcon,
@@ -180,40 +181,61 @@ export default function CoachClientDashboard() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <TargetIcon className="size-5 text-primary" />
-          <CardTitle className="text-lg">Goals</CardTitle>
-          <CardDescription>
-            S.M.A.R.T. fitness goals from this client&apos;s profile.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {goals.length > 0 ? (
-            <ol className="space-y-3">
-              {goals.map((goal, index) => (
-                <li
-                  key={goal.id}
-                  className="rounded-md border p-4 text-sm leading-relaxed"
-                >
-                  <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                    Goal {index + 1}
-                  </span>
-                  {goal.statement}
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <div className="rounded-md border border-dashed p-6 text-center">
-              <p className="text-sm font-medium">No goals on file yet</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Goals will appear here once the client adds them to their
-                profile.
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <TargetIcon className="size-5 text-primary" />
+            <CardTitle className="text-lg">Goals</CardTitle>
+            <CardDescription>
+              S.M.A.R.T. fitness goals from this client&apos;s profile.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {goals.length > 0 ? (
+              <ol className="space-y-3">
+                {goals.map((goal, index) => (
+                  <li
+                    key={goal.id}
+                    className="rounded-md border p-4 text-sm leading-relaxed"
+                  >
+                    <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                      Goal {index + 1}
+                    </span>
+                    {goal.statement}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <div className="rounded-md border border-dashed p-6 text-center">
+                <p className="text-sm font-medium">No goals on file yet</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Goals will appear here once the client adds them to their
+                  profile.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Link
+          to={`/dashboard/coach/client/${client.id}/nutrition`}
+          className="rounded-xl transition-colors hover:bg-muted/30"
+        >
+          <Card className="h-full transition-colors hover:border-primary/40">
+            <CardHeader>
+              <BowlFoodIcon className="size-5 text-primary" />
+              <CardTitle className="text-lg">Nutrition</CardTitle>
+              <CardDescription>
+                Calculate TDEE and set daily macro nutrient targets for this
+                client.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs font-medium text-primary">Open nutrition</p>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
