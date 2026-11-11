@@ -1,3 +1,4 @@
+import { ExerciseVideoDialog } from "~/components/exercise-video-dialog"
 import { Badge } from "~/components/ui/badge"
 import {
   prescriptionModeLabels,
@@ -15,7 +16,7 @@ type PreviewExercise = {
   tempo: string | null
   cues: string | null
   accessories: string | null
-  exercise: { name: string }
+  exercise: { name: string; videoUrl?: string | null }
 }
 
 type PreviewBlock = {
@@ -96,35 +97,47 @@ export function WorkoutPreview({ workout }: WorkoutPreviewProps) {
           <div className="space-y-2">
             {block.exercises.map((exercise) => (
               <div key={exercise.id} className="rounded-md border bg-background p-3">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-medium">{exercise.exercise.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {prescriptionModeLabels[exercise.prescriptionMode]} ·{" "}
-                      {formatTarget(
-                        exercise.prescriptionMode,
-                        exercise.targetReps,
-                        exercise.targetDurationSeconds,
-                        exercise.targetDistance,
-                        exercise.targetRpe,
-                        exercise.targetWeight
-                      )}
-                    </p>
+                <div className="flex flex-wrap items-start gap-3">
+                  <ExerciseVideoDialog
+                    exerciseName={exercise.exercise.name}
+                    videoUrl={exercise.exercise.videoUrl}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium">
+                          {exercise.exercise.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {prescriptionModeLabels[exercise.prescriptionMode]} ·{" "}
+                          {formatTarget(
+                            exercise.prescriptionMode,
+                            exercise.targetReps,
+                            exercise.targetDurationSeconds,
+                            exercise.targetDistance,
+                            exercise.targetRpe,
+                            exercise.targetWeight
+                          )}
+                        </p>
+                      </div>
+                      {exercise.tempo ? (
+                        <Badge variant="outline">Tempo {exercise.tempo}</Badge>
+                      ) : null}
+                    </div>
+
+                    {exercise.accessories ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Accessories: {exercise.accessories}
+                      </p>
+                    ) : null}
+
+                    {exercise.cues ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {exercise.cues}
+                      </p>
+                    ) : null}
                   </div>
-                  {exercise.tempo ? (
-                    <Badge variant="outline">Tempo {exercise.tempo}</Badge>
-                  ) : null}
                 </div>
-
-                {exercise.accessories ? (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Accessories: {exercise.accessories}
-                  </p>
-                ) : null}
-
-                {exercise.cues ? (
-                  <p className="mt-1 text-xs text-muted-foreground">{exercise.cues}</p>
-                ) : null}
               </div>
             ))}
           </div>

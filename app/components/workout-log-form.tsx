@@ -9,6 +9,7 @@ import {
 import { Form } from "react-router"
 import { useMemo, useRef, useState } from "react"
 
+import { ExerciseVideoDialog } from "~/components/exercise-video-dialog"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
 import {
@@ -58,11 +59,13 @@ export type SwapExerciseOption = {
   id: string
   name: string
   muscleGroup: ExerciseMuscleGroupValue
+  videoUrl?: string | null
 }
 
 type LogRow = WorkoutLogEntryPayload & {
   rowKey: string
   exerciseName: string
+  videoUrl: string | null
   originalExerciseName: string
   muscleGroup: ExerciseMuscleGroupValue
   plannedExerciseId: string
@@ -86,7 +89,7 @@ function rowGroupKey(row: LogRow) {
 }
 
 type DefaultLogEntry = WorkoutLogEntrySelect & {
-  exercise?: { id: string; name: string }
+  exercise?: { id: string; name: string; videoUrl?: string | null }
 }
 
 type WorkoutLogFormProps = {
@@ -168,6 +171,12 @@ function buildInitialRows(
   const exerciseNameById = new Map(
     swapExercises.map((exercise) => [exercise.id, exercise.name])
   )
+  const videoUrlById = new Map(
+    swapExercises.map((exercise) => [
+      exercise.id,
+      exercise.videoUrl ?? null,
+    ] as const)
+  )
 
   const exerciseMetaById = new Map(
     swapExercises.map((exercise) => [exercise.id, exercise])
@@ -180,12 +189,14 @@ function buildInitialRows(
     }
     if (entry.exercise) {
       exerciseNameById.set(entry.exercise.id, entry.exercise.name)
+      videoUrlById.set(entry.exercise.id, entry.exercise.videoUrl ?? null)
     }
   }
 
   for (const block of workout.blocks) {
     for (const exercise of block.exercises) {
       exerciseNameById.set(exercise.exerciseId, exercise.exercise.name)
+      videoUrlById.set(exercise.exerciseId, exercise.exercise.videoUrl ?? null)
     }
   }
 
@@ -218,6 +229,8 @@ function buildInitialRows(
           exerciseNameById.get(exerciseId) ?? exercise.exercise.name
         const originalExerciseName =
           exerciseNameById.get(originalExerciseId) ?? exercise.exercise.name
+        const videoUrl =
+          videoUrlById.get(exerciseId) ?? exercise.exercise.videoUrl ?? null
         const prescriptionMode =
           (existing?.prescriptionMode as PrescriptionModeValue | null | undefined) ??
           exercise.prescriptionMode
@@ -237,6 +250,7 @@ function buildInitialRows(
           roundNumber: round,
           setNumber: existing?.setNumber ?? undefined,
           exerciseName,
+          videoUrl,
           originalExerciseName,
           muscleGroup: exercise.exercise.muscleGroup,
           plannedExerciseId,
@@ -297,6 +311,11 @@ function buildInitialRows(
         entry.exercise?.name ??
         exerciseNameById.get(entry.exerciseId) ??
         "Exercise"
+      const videoUrl =
+        entry.exercise?.videoUrl ??
+        videoUrlById.get(entry.exerciseId) ??
+        meta?.videoUrl ??
+        null
       const prescriptionMode =
         (entry.prescriptionMode as PrescriptionModeValue | null | undefined) ??
         "reps"
@@ -309,6 +328,7 @@ function buildInitialRows(
         roundNumber: entry.roundNumber,
         setNumber: entry.setNumber ?? undefined,
         exerciseName,
+        videoUrl,
         originalExerciseName: exerciseName,
         muscleGroup: meta?.muscleGroup ?? "core",
         plannedExerciseId: entry.exerciseId,
@@ -675,6 +695,7 @@ export function WorkoutLogForm({
           ({
             rowKey: _rowKey,
             exerciseName: _name,
+            videoUrl: _videoUrl,
             originalExerciseName: _originalName,
             muscleGroup: _muscleGroup,
             plannedExerciseId: _planned,
@@ -744,6 +765,7 @@ export function WorkoutLogForm({
   function addAdjunctExercise(input: {
     exerciseId: string
     name: string
+    videoUrl?: string | null
     muscleGroup: ExerciseMuscleGroupValue
     prescriptionMode: PrescriptionModeValue
     setCount: number
@@ -763,6 +785,7 @@ export function WorkoutLogForm({
         exerciseId: input.exerciseId,
         roundNumber: round,
         exerciseName: input.name,
+        videoUrl: input.videoUrl ?? null,
         originalExerciseName: input.name,
         muscleGroup: input.muscleGroup,
         plannedExerciseId: input.exerciseId,
@@ -1034,6 +1057,7 @@ export function WorkoutLogForm({
           ...row,
           exerciseId: replacement.id,
           exerciseName: replacement.name,
+          videoUrl: replacement.videoUrl ?? null,
           originalExerciseId: swapDraft.originalExerciseId,
           originalExerciseName: swapDraft.originalExerciseName,
           swapReason,
@@ -1102,6 +1126,7 @@ export function WorkoutLogForm({
     addAdjunctExercise({
       exerciseId: selected.id,
       name: selected.name,
+      videoUrl: selected.videoUrl,
       muscleGroup: selected.muscleGroup,
       prescriptionMode: adjunctMode,
       setCount: Number.isFinite(setCount) ? setCount : 1,
@@ -1709,19 +1734,29 @@ function LogFields({
                       key={blockExerciseId}
                       className="rounded-md border bg-background px-3 py-2"
                     >
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-medium">{leadRow.exerciseName}</p>
-                        {swapped ? (
-                          <Badge variant="secondary">Swapped</Badge>
-                        ) : null}
+                      <div className="flex flex-wrap items-start gap-3">
+                        <ExerciseVideoDialog
+                          exerciseName={leadRow.exerciseName}
+                          videoUrl={leadRow.videoUrl}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-medium">
+                              {leadRow.exerciseName}
+                            </p>
+                            {swapped ? (
+                              <Badge variant="secondary">Swapped</Badge>
+                            ) : null}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Planned {leadRow.targetLabel}
+                            {leadRow.tempo ? ` · Tempo ${leadRow.tempo}` : ""}
+                            {leadRow.accessories
+                              ? ` · ${leadRow.accessories}`
+                              : ""}
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Planned {leadRow.targetLabel}
-                        {leadRow.tempo ? ` · Tempo ${leadRow.tempo}` : ""}
-                        {leadRow.accessories
-                          ? ` · ${leadRow.accessories}`
-                          : ""}
-                      </p>
                     </div>
                   )
                 }
@@ -1732,7 +1767,12 @@ function LogFields({
                     className="space-y-3 rounded-md border bg-background p-3"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 flex-1 flex-wrap items-start gap-3">
+                        <ExerciseVideoDialog
+                          exerciseName={leadRow.exerciseName}
+                          videoUrl={leadRow.videoUrl}
+                        />
+                        <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-sm font-medium">{leadRow.exerciseName}</p>
                           {swapped ? (
@@ -1768,6 +1808,7 @@ function LogFields({
                             {leadRow.cues}
                           </p>
                         ) : null}
+                        </div>
                       </div>
 
                       {allowExerciseSwap && onSwapExercise ? (
@@ -2142,30 +2183,36 @@ function LogFields({
                     className="space-y-3 rounded-md border bg-background p-3"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-medium">
-                            {leadRow.exerciseName}
+                      <div className="flex min-w-0 flex-1 flex-wrap items-start gap-3">
+                        <ExerciseVideoDialog
+                          exerciseName={leadRow.exerciseName}
+                          videoUrl={leadRow.videoUrl}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-medium">
+                              {leadRow.exerciseName}
+                            </p>
+                            <Badge variant="secondary">One-off</Badge>
+                            {leadRow.tempo && isReadOnly ? (
+                              <Badge variant="outline">Tempo {leadRow.tempo}</Badge>
+                            ) : null}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {setCount} set{setCount === 1 ? "" : "s"} ·{" "}
+                            {prescriptionModeLabels[leadRow.prescriptionMode]}
                           </p>
-                          <Badge variant="secondary">One-off</Badge>
-                          {leadRow.tempo && isReadOnly ? (
-                            <Badge variant="outline">Tempo {leadRow.tempo}</Badge>
+                          {isReadOnly && leadRow.accessories ? (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Accessories: {leadRow.accessories}
+                            </p>
+                          ) : null}
+                          {isReadOnly && leadRow.cues ? (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {leadRow.cues}
+                            </p>
                           ) : null}
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          {setCount} set{setCount === 1 ? "" : "s"} ·{" "}
-                          {prescriptionModeLabels[leadRow.prescriptionMode]}
-                        </p>
-                        {isReadOnly && leadRow.accessories ? (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Accessories: {leadRow.accessories}
-                          </p>
-                        ) : null}
-                        {isReadOnly && leadRow.cues ? (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {leadRow.cues}
-                          </p>
-                        ) : null}
                       </div>
 
                       {isReadOnly ? null : (
@@ -2451,12 +2498,20 @@ function LogFields({
                   key={adjunctId}
                   className="rounded-md border bg-background px-3 py-2"
                 >
-                  <p className="text-sm font-medium">{leadRow.exerciseName}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {adjunctRows.length} set
-                    {adjunctRows.length === 1 ? "" : "s"} ·{" "}
-                    {prescriptionModeLabels[leadRow.prescriptionMode]}
-                  </p>
+                  <div className="flex flex-wrap items-start gap-3">
+                    <ExerciseVideoDialog
+                      exerciseName={leadRow.exerciseName}
+                      videoUrl={leadRow.videoUrl}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{leadRow.exerciseName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {adjunctRows.length} set
+                        {adjunctRows.length === 1 ? "" : "s"} ·{" "}
+                        {prescriptionModeLabels[leadRow.prescriptionMode]}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )
             })}

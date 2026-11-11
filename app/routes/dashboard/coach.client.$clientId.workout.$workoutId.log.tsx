@@ -91,6 +91,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     id: exercise.id,
     name: exercise.name,
     muscleGroup: exercise.muscleGroup,
+    videoUrl: exercise.videoUrl,
   }))
 
   const plannedExerciseIds = workoutForPage.blocks.flatMap((block) =>
