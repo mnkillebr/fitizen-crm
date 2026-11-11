@@ -25,6 +25,7 @@ export type ExerciseSelect = typeof Exercise.$inferSelect
 export type ExerciseFormInput = {
   name: string
   description?: string | null
+  videoUrl?: string | null
   muscleGroup: ExerciseMuscleGroupValue
   planeOfMotion: ExercisePlaneOfMotionValue
   support: ExerciseSupportValue
@@ -36,6 +37,7 @@ export type ExerciseUpdate = Partial<
     ExerciseInsert,
     | "name"
     | "description"
+    | "videoUrl"
     | "muscleGroup"
     | "planeOfMotion"
     | "support"
@@ -121,6 +123,7 @@ export function createCoachExercise(coachId: string, input: ExerciseFormInput) {
   return createExercise({
     name: input.name,
     description: input.description ?? null,
+    videoUrl: input.videoUrl ?? null,
     muscleGroup: input.muscleGroup,
     planeOfMotion: input.planeOfMotion,
     support: input.support,
@@ -307,6 +310,7 @@ export async function updateCoachExercise(
   return updateExercise(exerciseId, {
     name: input.name,
     description: input.description ?? null,
+    videoUrl: input.videoUrl ?? null,
     muscleGroup: input.muscleGroup,
     planeOfMotion: input.planeOfMotion,
     support: input.support,

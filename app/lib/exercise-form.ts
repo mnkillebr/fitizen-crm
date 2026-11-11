@@ -70,6 +70,8 @@ export const exerciseEquipmentLabels: Record<ExerciseEquipment, string> = {
   glider: "Glider",
   plyo_box: "Plyo box",
   landmine: "Landmine",
+  dowel: "Dowel",
+  plate: "Plate",
 }
 
 export const exerciseFormSchema = z.object({
@@ -79,6 +81,11 @@ export const exerciseFormSchema = z.object({
     .trim()
     .optional()
     .transform((value) => (value ? value : undefined)),
+  videoUrl: z
+    .string()
+    .trim()
+    .transform((value) => (value === "" ? undefined : value))
+    .pipe(z.union([z.undefined(), z.url("Enter a valid video URL")])),
   muscleGroup: z.enum(exerciseMuscleGroupValues, {
     error: "Select a muscle group",
   }),
@@ -103,6 +110,7 @@ export function parseExerciseFormData(formData: FormData) {
   return exerciseFormSchema.safeParse({
     name: formData.get("name")?.toString() ?? "",
     description: formData.get("description")?.toString() ?? "",
+    videoUrl: formData.get("videoUrl")?.toString() ?? "",
     muscleGroup: formData.get("muscleGroup")?.toString() ?? "",
     planeOfMotion: formData.get("planeOfMotion")?.toString() ?? "",
     support: formData.get("support")?.toString() ?? "",
@@ -118,6 +126,7 @@ export function getExerciseFormFieldErrors(
   return {
     name: fieldErrors.name?.[0],
     description: fieldErrors.description?.[0],
+    videoUrl: fieldErrors.videoUrl?.[0],
     muscleGroup: fieldErrors.muscleGroup?.[0],
     planeOfMotion: fieldErrors.planeOfMotion?.[0],
     support: fieldErrors.support?.[0],

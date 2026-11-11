@@ -28,7 +28,13 @@ type ExerciseFormFieldsProps = {
   defaultValues?: Partial<
     Pick<
       ExerciseSelect,
-      "name" | "description" | "planeOfMotion" | "support" | "equipment" | "muscleGroup"
+      | "name"
+      | "description"
+      | "videoUrl"
+      | "planeOfMotion"
+      | "support"
+      | "equipment"
+      | "muscleGroup"
     >
   >
   fieldErrors?: ExerciseFormFieldErrors
@@ -164,6 +170,25 @@ export function ExerciseFormFields({
             <p className="text-xs text-destructive">{fieldErrors.equipment}</p>
           ) : null}
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="videoUrl">Video URL (optional)</Label>
+        <Input
+          id="videoUrl"
+          name="videoUrl"
+          type="url"
+          defaultValue={defaultValues?.videoUrl ?? ""}
+          placeholder="https://www.youtube.com/watch?v=..."
+          aria-invalid={fieldErrors?.videoUrl ? true : undefined}
+        />
+        {fieldErrors?.videoUrl ? (
+          <p className="text-xs text-destructive">{fieldErrors.videoUrl}</p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Link to a demo or instructional video for this movement.
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">
