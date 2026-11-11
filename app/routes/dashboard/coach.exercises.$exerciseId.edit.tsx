@@ -53,6 +53,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   const updated = await updateCoachExercise(user.id, params.exerciseId, {
     name: parsed.data.name,
     description: parsed.data.description ?? null,
+    videoUrl: parsed.data.videoUrl ?? null,
     muscleGroup: parsed.data.muscleGroup,
     planeOfMotion: parsed.data.planeOfMotion,
     support: parsed.data.support,

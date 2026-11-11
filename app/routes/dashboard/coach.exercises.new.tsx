@@ -38,6 +38,7 @@ export async function action({ request }: Route.ActionArgs) {
   await createCoachExercise(user.id, {
     name: parsed.data.name,
     description: parsed.data.description ?? null,
+    videoUrl: parsed.data.videoUrl ?? null,
     muscleGroup: parsed.data.muscleGroup,
     planeOfMotion: parsed.data.planeOfMotion,
     support: parsed.data.support,
