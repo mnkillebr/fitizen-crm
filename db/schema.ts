@@ -94,6 +94,8 @@ export const ExerciseEquipment = pgEnum('ExerciseEquipment', [
   'glider',
   'plyo_box',
   'landmine',
+  'dowel',
+  'plate',
 ])
 
 export const ExerciseSwapReason = pgEnum('ExerciseSwapReason', [
@@ -186,6 +188,8 @@ export const Exercise = pgTable('Exercise', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   description: text('description'),
+  /** Optional demo or instructional video URL (e.g. YouTube, Vimeo). */
+  videoUrl: text('videoUrl'),
   /** Sagittal, frontal, or transverse plane of movement. */
   planeOfMotion: ExercisePlaneOfMotion('planeOfMotion').notNull(),
   /** Unilateral, bilateral or dynamic support/stabilization pattern. */
