@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-table"
 import { Form, Link } from "react-router"
 
+import { ExerciseVideoDialog } from "~/components/exercise-video-dialog"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
 import {
@@ -29,6 +30,20 @@ const columnHelper = createColumnHelper<ExerciseSelect>()
 const coreRowModel = getCoreRowModel()
 
 const columns = [
+  columnHelper.display({
+    id: "video",
+    header: "Video",
+    cell: (info) => {
+      const exercise = info.row.original
+
+      return (
+        <ExerciseVideoDialog
+          exerciseName={exercise.name}
+          videoUrl={exercise.videoUrl}
+        />
+      )
+    },
+  }),
   columnHelper.accessor("name", {
     header: "Name",
     cell: (info) => {
