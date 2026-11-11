@@ -5,6 +5,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table"
+import { useMemo } from "react"
 import { Form, Link } from "react-router"
 
 import { ExerciseVideoDialog } from "~/components/exercise-video-dialog"
@@ -29,116 +30,125 @@ import type { ExerciseSelect } from "../../models/exercise.server"
 const columnHelper = createColumnHelper<ExerciseSelect>()
 const coreRowModel = getCoreRowModel()
 
-const columns = [
-  columnHelper.display({
-    id: "video",
-    header: "Video",
-    cell: (info) => {
-      const exercise = info.row.original
+function createColumns(admin: boolean) {
+  return [
+    columnHelper.display({
+      id: "video",
+      header: "Video",
+      cell: (info) => {
+        const exercise = info.row.original
 
-      return (
-        <ExerciseVideoDialog
-          exerciseName={exercise.name}
-          videoUrl={exercise.videoUrl}
-        />
-      )
-    },
-  }),
-  columnHelper.accessor("name", {
-    header: "Name",
-    cell: (info) => {
-      const exercise = info.row.original
-
-      return (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium">{info.getValue()}</span>
-          {exercise.isSystem ? <Badge variant="outline">System</Badge> : null}
-        </div>
-      )
-    },
-  }),
-  columnHelper.accessor("muscleGroup", {
-    header: "Muscle group",
-    cell: (info) => (
-      <Badge variant="secondary">
-        {exerciseMuscleGroupLabels[info.getValue()]}
-      </Badge>
-    ),
-  }),
-  columnHelper.accessor("planeOfMotion", {
-    header: "Plane",
-    cell: (info) => (
-      <Badge variant="secondary">
-        {exercisePlaneOfMotionLabels[info.getValue()]}
-      </Badge>
-    ),
-  }),
-  columnHelper.accessor("support", {
-    header: "Support",
-    cell: (info) => exerciseSupportLabels[info.getValue()],
-  }),
-  columnHelper.accessor("equipment", {
-    header: "Equipment",
-    cell: (info) => exerciseEquipmentLabels[info.getValue()],
-  }),
-  columnHelper.display({
-    id: "actions",
-    header: "",
-    cell: (info) => {
-      const exercise = info.row.original
-
-      if (exercise.isSystem) {
         return (
-          <div className="text-right text-sm text-muted-foreground">
-            Shared library
+          <ExerciseVideoDialog
+            exerciseName={exercise.name}
+            videoUrl={exercise.videoUrl}
+          />
+        )
+      },
+    }),
+    columnHelper.accessor("name", {
+      header: "Name",
+      cell: (info) => {
+        const exercise = info.row.original
+
+        return (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium">{info.getValue()}</span>
+            {exercise.isSystem ? <Badge variant="outline">System</Badge> : null}
           </div>
         )
-      }
+      },
+    }),
+    columnHelper.accessor("muscleGroup", {
+      header: "Muscle group",
+      cell: (info) => (
+        <Badge variant="secondary">
+          {exerciseMuscleGroupLabels[info.getValue()]}
+        </Badge>
+      ),
+    }),
+    columnHelper.accessor("planeOfMotion", {
+      header: "Plane",
+      cell: (info) => (
+        <Badge variant="secondary">
+          {exercisePlaneOfMotionLabels[info.getValue()]}
+        </Badge>
+      ),
+    }),
+    columnHelper.accessor("support", {
+      header: "Support",
+      cell: (info) => exerciseSupportLabels[info.getValue()],
+    }),
+    columnHelper.accessor("equipment", {
+      header: "Equipment",
+      cell: (info) => exerciseEquipmentLabels[info.getValue()],
+    }),
+    columnHelper.display({
+      id: "actions",
+      header: "",
+      cell: (info) => {
+        const exercise = info.row.original
+        const canEdit = !exercise.isSystem || admin
+        const canDelete = !exercise.isSystem
 
-      return (
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <Link to={`/dashboard/exercises/${exercise.id}/edit`}>
-              <PencilSimpleIcon />
-              Edit
-            </Link>
-          </Button>
-          <Form
-            method="post"
-            onSubmit={(event) => {
-              const confirmed = window.confirm(
-                `Delete "${exercise.name}"? This cannot be undone.`
-              )
+        if (!canEdit) {
+          return (
+            <div className="text-right text-sm text-muted-foreground">
+              Shared library
+            </div>
+          )
+        }
 
-              if (!confirmed) {
-                event.preventDefault()
-              }
-            }}
-          >
-            <input type="hidden" name="intent" value="delete-exercise" />
-            <input type="hidden" name="exerciseId" value={exercise.id} />
-            <Button type="submit" variant="destructive" size="sm">
-              <TrashIcon />
-              Delete
+        return (
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link to={`/dashboard/exercises/${exercise.id}/edit`}>
+                <PencilSimpleIcon />
+                Edit
+              </Link>
             </Button>
-          </Form>
-        </div>
-      )
-    },
-  }),
-]
+            {canDelete ? (
+              <Form
+                method="post"
+                onSubmit={(event) => {
+                  const confirmed = window.confirm(
+                    `Delete "${exercise.name}"? This cannot be undone.`
+                  )
+
+                  if (!confirmed) {
+                    event.preventDefault()
+                  }
+                }}
+              >
+                <input type="hidden" name="intent" value="delete-exercise" />
+                <input type="hidden" name="exerciseId" value={exercise.id} />
+                <Button type="submit" variant="destructive" size="sm">
+                  <TrashIcon />
+                  Delete
+                </Button>
+              </Form>
+            ) : null}
+          </div>
+        )
+      },
+    }),
+  ]
+}
 
 type ExercisesTableProps = {
   exercises: ExerciseSelect[]
+  admin?: boolean
   emptyTitle?: string
   emptyDescription?: string
 }
 
 export function ExercisesTable({
   exercises,
+  admin = false,
   emptyTitle = "No exercises yet",
   emptyDescription = "Create your first exercise to start building workout prescriptions.",
 }: ExercisesTableProps) {
+  const columns = useMemo(() => createColumns(admin), [admin])
   const table = useReactTable({
     data: exercises,
     columns,

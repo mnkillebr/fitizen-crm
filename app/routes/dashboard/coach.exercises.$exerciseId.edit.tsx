@@ -17,13 +17,17 @@ import {
 } from "~/lib/exercise-form"
 import { requireApprovedCoach } from "~/lib/auth.server"
 import {
-  getOwnedCoachExerciseById,
+  getEditableCoachExerciseById,
   updateCoachExercise,
 } from "../../../models/exercise.server"
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const user = await requireApprovedCoach(request)
-  const exercises = await getOwnedCoachExerciseById(user.id, params.exerciseId)
+  const exercises = await getEditableCoachExerciseById(
+    user.id,
+    params.exerciseId,
+    { isAdmin: user.admin }
+  )
   const exercise = exercises[0]
 
   if (!exercise) {
@@ -35,7 +39,11 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
 export async function action({ request, params }: Route.ActionArgs) {
   const user = await requireApprovedCoach(request)
-  const exercises = await getOwnedCoachExerciseById(user.id, params.exerciseId)
+  const exercises = await getEditableCoachExerciseById(
+    user.id,
+    params.exerciseId,
+    { isAdmin: user.admin }
+  )
 
   if (!exercises[0]) {
     throw new Response("Exercise not found", { status: 404 })
@@ -50,15 +58,20 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
   }
 
-  const updated = await updateCoachExercise(user.id, params.exerciseId, {
-    name: parsed.data.name,
-    description: parsed.data.description ?? null,
-    videoUrl: parsed.data.videoUrl ?? null,
-    muscleGroup: parsed.data.muscleGroup,
-    planeOfMotion: parsed.data.planeOfMotion,
-    support: parsed.data.support,
-    equipment: parsed.data.equipment,
-  })
+  const updated = await updateCoachExercise(
+    user.id,
+    params.exerciseId,
+    {
+      name: parsed.data.name,
+      description: parsed.data.description ?? null,
+      videoUrl: parsed.data.videoUrl ?? null,
+      muscleGroup: parsed.data.muscleGroup,
+      planeOfMotion: parsed.data.planeOfMotion,
+      support: parsed.data.support,
+      equipment: parsed.data.equipment,
+    },
+    { isAdmin: user.admin }
+  )
 
   if (!updated) {
     throw new Response("Exercise not found", { status: 404 })
@@ -85,7 +98,9 @@ export default function CoachEditExercise() {
 
         <h1 className="text-3xl font-semibold tracking-tight">Edit exercise</h1>
         <p className="mt-2 text-muted-foreground">
-          Update {exercise.name} in your exercise catalog.
+          Update {exercise.name}
+          {exercise.isSystem ? " in the shared system library" : " in your exercise catalog"}
+          .
         </p>
       </div>
 

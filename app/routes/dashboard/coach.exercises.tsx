@@ -51,7 +51,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     pageSize: EXERCISE_LIST_PAGE_SIZE,
   })
 
-  return { ...result, filters }
+  return { ...result, filters, admin: user.admin }
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -92,7 +92,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function CoachExercises() {
-  const { exercises, total, page, totalPages, filters } =
+  const { exercises, total, page, totalPages, filters, admin } =
     useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const filtersActive = hasActiveExerciseFilters(filters)
@@ -183,6 +183,7 @@ export default function CoachExercises() {
         <CardContent className="space-y-4">
           <ExercisesTable
             exercises={exercises}
+            admin={admin}
             emptyTitle={
               filtersActive ? "No matching exercises" : "No exercises yet"
             }

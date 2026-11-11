@@ -151,6 +151,25 @@ export function getOwnedCoachExerciseById(coachId: string, exerciseId: string) {
     )
 }
 
+/**
+ * Exercises a coach may edit.
+ * Admins may also edit shared system library rows.
+ */
+export function getEditableCoachExerciseById(
+  coachId: string,
+  exerciseId: string,
+  options?: { isAdmin?: boolean }
+) {
+  if (options?.isAdmin) {
+    return db
+      .select()
+      .from(Exercise)
+      .where(and(eq(Exercise.id, exerciseId), coachCatalogCondition(coachId)))
+  }
+
+  return getOwnedCoachExerciseById(coachId, exerciseId)
+}
+
 /** Any exercise in the coach catalog (system library or owned). */
 export function getCoachExerciseById(coachId: string, exerciseId: string) {
   return db
@@ -299,9 +318,14 @@ export function updateExercise(id: string, input: ExerciseUpdate) {
 export async function updateCoachExercise(
   coachId: string,
   exerciseId: string,
-  input: ExerciseFormInput
+  input: ExerciseFormInput,
+  options?: { isAdmin?: boolean }
 ) {
-  const exercises = await getOwnedCoachExerciseById(coachId, exerciseId)
+  const exercises = await getEditableCoachExerciseById(
+    coachId,
+    exerciseId,
+    options
+  )
 
   if (!exercises[0]) {
     return null
