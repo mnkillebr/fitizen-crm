@@ -3,6 +3,7 @@ import {
   CalendarBlankIcon,
   BowlFoodIcon,
   PersonSimpleRunIcon,
+  PersonSimpleTaiChiIcon,
   ClockCounterClockwiseIcon,
   PlusIcon,
   TargetIcon,
@@ -239,6 +240,24 @@ export default function CoachClientDashboard() {
             </CardHeader>
             <CardContent>
               <NutritionTargetSummary target={nutritionTarget} />
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link
+          to={`/dashboard/coach/client/${client.id}/correctives`}
+          className="rounded-xl transition-colors hover:bg-muted/30"
+        >
+          <Card className="h-full transition-colors hover:border-primary/40">
+            <CardHeader>
+              <PersonSimpleTaiChiIcon className="size-5 text-primary" />
+              <CardTitle className="text-lg">Corrective Protocol</CardTitle>
+              <CardDescription>
+                Stability, mobility, and activation work assigned to this client.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs font-medium text-primary">View correctives</p>
             </CardContent>
           </Card>
         </Link>

@@ -3,6 +3,7 @@ import {
   ChatCircleIcon,
   BowlFoodIcon,
   PersonSimpleRunIcon,
+  PersonSimpleTaiChiIcon,
   UserCircleIcon,
 } from "@phosphor-icons/react"
 import { Link, useLoaderData, useOutletContext } from "react-router"
@@ -27,6 +28,13 @@ const memberSections = [
     description: "View assigned sessions and review your training history.",
     href: "/dashboard/member/workouts",
     cta: "View workouts",
+  },
+  {
+    icon: PersonSimpleTaiChiIcon,
+    title: "Corrective Protocol",
+    description: "Stability, mobility, and activation work from your coach.",
+    href: "/dashboard/member/correctives",
+    cta: "View correctives",
   },
   {
     icon: BowlFoodIcon,
