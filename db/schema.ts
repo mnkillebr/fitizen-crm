@@ -22,6 +22,7 @@ export const WorkoutStyle = pgEnum('WorkoutStyle', [
   'strength_circuit',
   'hiit',
   'cardio',
+  'corrective_protocol',
 ])
 
 export const WorkoutStatus = pgEnum('WorkoutStatus', [
@@ -38,11 +39,12 @@ export const WorkoutLogStatus = pgEnum('WorkoutLogStatus', [
   'no_show',
 ])
 
-/** Groups exercises within a workout; maps to circuits, HIIT intervals, or cardio segments. */
+/** Groups exercises within a workout; maps to circuits, HIIT intervals, cardio segments, or straight sets. */
 export const WorkoutBlockType = pgEnum('WorkoutBlockType', [
   'circuit',
   'interval',
   'segment',
+  'straight_set',
 ])
 
 export const ExercisePrescriptionMode = pgEnum('ExercisePrescriptionMode', [
