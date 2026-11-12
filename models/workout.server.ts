@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, or } from "drizzle-orm"
+import { and, asc, desc, eq, gte, inArray, ne, or } from "drizzle-orm"
 
 import db from "../db"
 import type { WorkoutBuilderPayload } from "../app/lib/workout-builder"
@@ -604,7 +604,8 @@ export async function getUpcomingWorkoutForClient(
         eq(Workout.coachId, coachId),
         eq(Workout.memberId, memberId),
         or(eq(Workout.status, "scheduled"), eq(Workout.status, "in_progress")),
-        gte(Workout.workoutDate, startOfToday)
+        gte(Workout.workoutDate, startOfToday),
+        ne(Workout.style, "corrective_protocol")
       )
     )
     .orderBy(asc(Workout.workoutDate))
@@ -713,7 +714,8 @@ export async function getUpcomingWorkoutForMember(
       and(
         eq(Workout.memberId, memberId),
         or(eq(Workout.status, "scheduled"), eq(Workout.status, "in_progress")),
-        gte(Workout.workoutDate, startOfToday)
+        gte(Workout.workoutDate, startOfToday),
+        ne(Workout.style, "corrective_protocol")
       )
     )
     .orderBy(asc(Workout.workoutDate))
@@ -731,6 +733,48 @@ export async function getUpcomingWorkoutForMember(
   }
 
   return { ...workout, activeLogId }
+}
+
+async function getAssignedCorrectiveWorkouts(
+  whereClause: ReturnType<typeof and>
+): Promise<WorkoutWithDetails[]> {
+  const workouts = await db
+    .select()
+    .from(Workout)
+    .where(whereClause)
+    .orderBy(asc(Workout.workoutDate))
+
+  const detailed = await Promise.all(
+    workouts.map((workout) => getWorkoutWithDetails(workout.id))
+  )
+
+  return detailed.filter((workout): workout is WorkoutWithDetails => workout !== null)
+}
+
+export async function getAssignedCorrectivesForMember(
+  memberId: string
+): Promise<WorkoutWithDetails[]> {
+  return getAssignedCorrectiveWorkouts(
+    and(
+      eq(Workout.memberId, memberId),
+      eq(Workout.style, "corrective_protocol"),
+      or(eq(Workout.status, "scheduled"), eq(Workout.status, "in_progress"))
+    )
+  )
+}
+
+export async function getAssignedCorrectivesForClient(
+  coachId: string,
+  memberId: string
+): Promise<WorkoutWithDetails[]> {
+  return getAssignedCorrectiveWorkouts(
+    and(
+      eq(Workout.coachId, coachId),
+      eq(Workout.memberId, memberId),
+      eq(Workout.style, "corrective_protocol"),
+      or(eq(Workout.status, "scheduled"), eq(Workout.status, "in_progress"))
+    )
+  )
 }
 
 export async function getPreviousCompletedLogForMember(
