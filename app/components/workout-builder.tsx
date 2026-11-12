@@ -94,7 +94,7 @@ function createEmptyBlock(style: WorkoutStyleValue, orderIndex: number): Builder
     blockType,
     orderIndex,
     name: defaultBlockName(style, orderIndex),
-    rounds: blockType === "circuit" ? 3 : undefined,
+    rounds: blockType === "circuit" || blockType === "straight_set" ? 3 : undefined,
     restBetweenRoundsSeconds: blockType === "circuit" ? 60 : undefined,
     workDurationSeconds: blockType === "interval" ? 40 : undefined,
     restDurationSeconds: blockType === "interval" ? 20 : undefined,
@@ -103,6 +103,42 @@ function createEmptyBlock(style: WorkoutStyleValue, orderIndex: number): Builder
     notes: undefined,
     exercises: [],
   }
+}
+
+function createStraightSetBlock(
+  exercise: BuilderExerciseState,
+  orderIndex: number,
+  rounds = 3
+): BuilderBlockState {
+  return {
+    clientId: createClientId(),
+    blockType: "straight_set",
+    orderIndex,
+    name: defaultBlockName("corrective_protocol", orderIndex),
+    rounds,
+    restBetweenRoundsSeconds: undefined,
+    workDurationSeconds: undefined,
+    restDurationSeconds: undefined,
+    targetDurationSeconds: undefined,
+    targetIntensity: undefined,
+    notes: undefined,
+    exercises: [{ ...exercise, orderIndex: 0 }],
+  }
+}
+
+function flattenToStraightSetBlocks(blocks: BuilderBlockState[]): BuilderBlockState[] {
+  const exercises = blocks.flatMap((block) =>
+    block.exercises.map((exercise) => ({
+      exercise,
+      rounds: block.rounds ?? 3,
+    }))
+  )
+
+  return reindexBlocks(
+    exercises.map(({ exercise, rounds }, index) =>
+      createStraightSetBlock(exercise, index, rounds)
+    )
+  )
 }
 
 function createInitialState(defaultTemplate?: WorkoutTemplateWithDetails): BuilderState {
@@ -152,11 +188,16 @@ function createInitialState(defaultTemplate?: WorkoutTemplateWithDetails): Build
 }
 
 function serializeState(state: BuilderState): WorkoutBuilderPayload {
+  const blocks =
+    state.style === "corrective_protocol"
+      ? state.blocks.filter((block) => block.exercises.length === 1)
+      : state.blocks
+
   return {
     title: state.title,
     style: state.style,
     notes: state.notes || undefined,
-    blocks: state.blocks.map((block, blockIndex) => ({
+    blocks: blocks.map((block, blockIndex) => ({
       blockType: block.blockType,
       orderIndex: blockIndex,
       name: block.name || undefined,
@@ -337,6 +378,8 @@ function ExercisePrescriptionRow({
   onMoveDown,
   disableMoveUp,
   disableMoveDown,
+  rounds,
+  onRoundsChange,
 }: {
   exercise: BuilderExerciseState
   onChange: (updates: Partial<BuilderExerciseState>) => void
@@ -345,6 +388,8 @@ function ExercisePrescriptionRow({
   onMoveDown: () => void
   disableMoveUp: boolean
   disableMoveDown: boolean
+  rounds?: number
+  onRoundsChange?: (rounds: number | undefined) => void
 }) {
   return (
     <div className="rounded-md border bg-background p-3">
@@ -389,6 +434,22 @@ function ExercisePrescriptionRow({
       </div>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {onRoundsChange ? (
+          <div className="space-y-1.5">
+            <Label>Rounds</Label>
+            <Input
+              type="number"
+              min={1}
+              value={rounds ?? ""}
+              onChange={(event) =>
+                onRoundsChange(
+                  event.target.value ? Number(event.target.value) : undefined
+                )
+              }
+            />
+          </div>
+        ) : null}
+
         <div className="space-y-1.5">
           <Label>Mode</Label>
           <Select
@@ -700,17 +761,76 @@ export function WorkoutBuilder({
   }
 
   function handleStyleChange(style: WorkoutStyleValue) {
+    setState((current) => {
+      if (style === "corrective_protocol") {
+        const nextBlocks = flattenToStraightSetBlocks(current.blocks)
+        setActivePickerBlockId(null)
+        return { ...current, style, blocks: nextBlocks }
+      }
+
+      const sourceBlocks =
+        current.style === "corrective_protocol" && current.blocks.length === 0
+          ? [createEmptyBlock(style, 0)]
+          : current.blocks
+
+      const nextBlockType = blockTypeForStyle(style)
+      const nextBlocks = reindexBlocks(
+        sourceBlocks.map((block, index) => {
+          const empty = createEmptyBlock(style, index)
+          return {
+            ...empty,
+            clientId: block.clientId,
+            name: block.name ?? defaultBlockName(style, index),
+            exercises: block.exercises,
+            rounds:
+              nextBlockType === "circuit" || nextBlockType === "straight_set"
+                ? (block.rounds ?? 3)
+                : empty.rounds,
+          }
+        })
+      )
+
+      setActivePickerBlockId(nextBlocks[0]?.clientId ?? null)
+      return { ...current, style, blocks: nextBlocks }
+    })
+  }
+
+  function addStraightSetExercise(exercise: ExerciseSelect) {
+    setState((current) => {
+      const nextExercise: BuilderExerciseState = {
+        clientId: createClientId(),
+        exerciseId: exercise.id,
+        exerciseName: exercise.name,
+        orderIndex: 0,
+        prescriptionMode: "reps",
+        targetReps: 10,
+        targetRpe: 7,
+        restAfterSeconds: 30,
+      }
+
+      return {
+        ...current,
+        blocks: reindexBlocks([
+          ...current.blocks,
+          createStraightSetBlock(nextExercise, current.blocks.length),
+        ]),
+      }
+    })
+  }
+
+  function removeStraightSetBlock(blockId: string) {
     setState((current) => ({
       ...current,
-      style,
-      blocks: current.blocks.map((block, index) => ({
-        ...createEmptyBlock(style, index),
-        clientId: block.clientId,
-        name: block.name ?? defaultBlockName(style, index),
-        exercises: block.exercises,
-      })),
+      blocks: reindexBlocks(
+        current.blocks.filter((block) => block.clientId !== blockId)
+      ),
     }))
   }
+
+  const isCorrectiveProtocol = state.style === "corrective_protocol"
+  const correctiveExerciseIds = state.blocks.flatMap((block) =>
+    block.exercises.map((exercise) => exercise.exerciseId)
+  )
 
   return (
     <Form method="post" className="space-y-6">
@@ -814,129 +934,200 @@ export function WorkoutBuilder({
         </CardContent>
       </Card>
 
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-semibold">Blocks</h2>
-            <p className="text-sm text-muted-foreground">
-              Add blocks and populate them with exercises from your catalog.
-            </p>
-            {fieldErrors?.blocks ? (
-              <p className="mt-1 text-xs text-destructive">{fieldErrors.blocks}</p>
-            ) : null}
+      {isCorrectiveProtocol ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold">Exercises</h2>
+              <p className="text-sm text-muted-foreground">
+                Add exercises as straight sets. Complete all rounds of one exercise
+                before moving to the next.
+              </p>
+              {fieldErrors?.blocks ? (
+                <p className="mt-1 text-xs text-destructive">{fieldErrors.blocks}</p>
+              ) : null}
+            </div>
+            <Button
+              type="button"
+              variant={activePickerBlockId === "corrective" ? "default" : "outline"}
+              onClick={() =>
+                setActivePickerBlockId(
+                  activePickerBlockId === "corrective" ? null : "corrective"
+                )
+              }
+            >
+              <PlusIcon />
+              {activePickerBlockId === "corrective" ? "Hide picker" : "Add exercise"}
+            </Button>
           </div>
-          <Button type="button" variant="outline" onClick={addBlock}>
-            <PlusIcon />
-            Add block
-          </Button>
-        </div>
 
-        {state.blocks.map((block, blockIndex) => (
-          <Card key={block.clientId}>
-            <CardHeader>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <CardTitle className="text-base">
-                    {block.name || defaultBlockName(state.style, blockIndex)}
-                  </CardTitle>
-                  <CardDescription>
-                    {workoutBlockTypeLabels[block.blockType as WorkoutBlockTypeValue]}
-                  </CardDescription>
+          <Card>
+            <CardContent className="space-y-3 pt-6">
+              {state.blocks.length === 0 ? (
+                <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+                  No exercises in this protocol yet.
                 </div>
-                <div className="flex gap-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    disabled={blockIndex === 0}
-                    onClick={() => moveBlock(block.clientId, "up")}
-                    aria-label="Move block up"
-                  >
-                    <ArrowUpIcon />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    disabled={blockIndex === state.blocks.length - 1}
-                    onClick={() => moveBlock(block.clientId, "down")}
-                    aria-label="Move block down"
-                  >
-                    <ArrowDownIcon />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => removeBlock(block.clientId)}
-                    aria-label="Remove block"
-                  >
-                    <TrashIcon />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <BlockSettings
-                block={block}
-                onChange={(updates) => updateBlock(block.clientId, updates)}
-              />
+              ) : (
+                state.blocks.map((block, blockIndex) => {
+                  const exercise = block.exercises[0]
+                  if (!exercise) return null
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium">Exercises</p>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={activePickerBlockId === block.clientId ? "default" : "outline"}
-                    onClick={() =>
-                      setActivePickerBlockId(
-                        activePickerBlockId === block.clientId ? null : block.clientId
-                      )
-                    }
-                  >
-                    <PlusIcon />
-                    {activePickerBlockId === block.clientId ? "Hide picker" : "Add exercise"}
-                  </Button>
-                </div>
-
-                {block.exercises.length === 0 ? (
-                  <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
-                    No exercises in this block yet.
-                  </div>
-                ) : (
-                  block.exercises.map((exercise, exerciseIndex) => (
+                  return (
                     <ExercisePrescriptionRow
-                      key={exercise.clientId}
+                      key={block.clientId}
                       exercise={exercise}
+                      rounds={block.rounds}
+                      onRoundsChange={(rounds) =>
+                        updateBlock(block.clientId, { rounds })
+                      }
                       onChange={(updates) =>
                         updateExercise(block.clientId, exercise.clientId, updates)
                       }
-                      onRemove={() => removeExercise(block.clientId, exercise.clientId)}
-                      onMoveUp={() =>
-                        moveExercise(block.clientId, exercise.clientId, "up")
-                      }
-                      onMoveDown={() =>
-                        moveExercise(block.clientId, exercise.clientId, "down")
-                      }
-                      disableMoveUp={exerciseIndex === 0}
-                      disableMoveDown={exerciseIndex === block.exercises.length - 1}
+                      onRemove={() => removeStraightSetBlock(block.clientId)}
+                      onMoveUp={() => moveBlock(block.clientId, "up")}
+                      onMoveDown={() => moveBlock(block.clientId, "down")}
+                      disableMoveUp={blockIndex === 0}
+                      disableMoveDown={blockIndex === state.blocks.length - 1}
                     />
-                  ))
-                )}
-              </div>
+                  )
+                })
+              )}
 
-              {activePickerBlockId === block.clientId ? (
+              {activePickerBlockId === "corrective" ? (
                 <ExercisePicker
                   exercises={exercises}
-                  onSelect={(exercise) => addExerciseToBlock(block.clientId, exercise)}
-                  excludeExerciseIds={block.exercises.map((item) => item.exerciseId)}
+                  onSelect={addStraightSetExercise}
+                  excludeExerciseIds={correctiveExerciseIds}
                 />
               ) : null}
             </CardContent>
           </Card>
-        ))}
-      </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold">Blocks</h2>
+              <p className="text-sm text-muted-foreground">
+                Add blocks and populate them with exercises from your catalog.
+              </p>
+              {fieldErrors?.blocks ? (
+                <p className="mt-1 text-xs text-destructive">{fieldErrors.blocks}</p>
+              ) : null}
+            </div>
+            <Button type="button" variant="outline" onClick={addBlock}>
+              <PlusIcon />
+              Add block
+            </Button>
+          </div>
+
+          {state.blocks.map((block, blockIndex) => (
+            <Card key={block.clientId}>
+              <CardHeader>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-base">
+                      {block.name || defaultBlockName(state.style, blockIndex)}
+                    </CardTitle>
+                    <CardDescription>
+                      {workoutBlockTypeLabels[block.blockType as WorkoutBlockTypeValue]}
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={blockIndex === 0}
+                      onClick={() => moveBlock(block.clientId, "up")}
+                      aria-label="Move block up"
+                    >
+                      <ArrowUpIcon />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={blockIndex === state.blocks.length - 1}
+                      onClick={() => moveBlock(block.clientId, "down")}
+                      aria-label="Move block down"
+                    >
+                      <ArrowDownIcon />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => removeBlock(block.clientId)}
+                      aria-label="Remove block"
+                    >
+                      <TrashIcon />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <BlockSettings
+                  block={block}
+                  onChange={(updates) => updateBlock(block.clientId, updates)}
+                />
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium">Exercises</p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={activePickerBlockId === block.clientId ? "default" : "outline"}
+                      onClick={() =>
+                        setActivePickerBlockId(
+                          activePickerBlockId === block.clientId ? null : block.clientId
+                        )
+                      }
+                    >
+                      <PlusIcon />
+                      {activePickerBlockId === block.clientId ? "Hide picker" : "Add exercise"}
+                    </Button>
+                  </div>
+
+                  {block.exercises.length === 0 ? (
+                    <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+                      No exercises in this block yet.
+                    </div>
+                  ) : (
+                    block.exercises.map((exercise, exerciseIndex) => (
+                      <ExercisePrescriptionRow
+                        key={exercise.clientId}
+                        exercise={exercise}
+                        onChange={(updates) =>
+                          updateExercise(block.clientId, exercise.clientId, updates)
+                        }
+                        onRemove={() => removeExercise(block.clientId, exercise.clientId)}
+                        onMoveUp={() =>
+                          moveExercise(block.clientId, exercise.clientId, "up")
+                        }
+                        onMoveDown={() =>
+                          moveExercise(block.clientId, exercise.clientId, "down")
+                        }
+                        disableMoveUp={exerciseIndex === 0}
+                        disableMoveDown={exerciseIndex === block.exercises.length - 1}
+                      />
+                    ))
+                  )}
+                </div>
+
+                {activePickerBlockId === block.clientId ? (
+                  <ExercisePicker
+                    exercises={exercises}
+                    onSelect={(exercise) => addExerciseToBlock(block.clientId, exercise)}
+                    excludeExerciseIds={block.exercises.map((item) => item.exerciseId)}
+                  />
+                ) : null}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <Button type="submit" disabled={isSubmitting}>
         {isSubmitting ? "Saving..." : submitLabel}

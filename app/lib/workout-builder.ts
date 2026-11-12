@@ -18,12 +18,14 @@ export const workoutStyleLabels: Record<WorkoutStyleValue, string> = {
   strength_circuit: "Strength circuit",
   hiit: "HIIT",
   cardio: "Cardio",
+  corrective_protocol: "Corrective protocol",
 }
 
 export const workoutBlockTypeLabels: Record<WorkoutBlockTypeValue, string> = {
   circuit: "Circuit",
   interval: "Interval",
   segment: "Segment",
+  straight_set: "Straight set",
 }
 
 export const prescriptionModeLabels: Record<PrescriptionModeValue, string> = {
@@ -40,6 +42,8 @@ export function blockTypeForStyle(style: WorkoutStyleValue): WorkoutBlockTypeVal
       return "interval"
     case "cardio":
       return "segment"
+    case "corrective_protocol":
+      return "straight_set"
   }
 }
 
@@ -139,6 +143,24 @@ export const builderBlockSchema = z
         message: "Circuits require at least one round",
         path: ["rounds"],
       })
+    }
+
+    if (block.blockType === "straight_set") {
+      if (block.rounds === undefined) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Straight sets require at least one round",
+          path: ["rounds"],
+        })
+      }
+
+      if (block.exercises.length !== 1) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Each straight set must contain exactly one exercise",
+          path: ["exercises"],
+        })
+      }
     }
 
     if (block.blockType === "interval") {
