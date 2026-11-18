@@ -2,19 +2,10 @@ import { ArrowLeftIcon, PersonSimpleTaiChiIcon } from "@phosphor-icons/react"
 import { Link, useLoaderData } from "react-router"
 
 import type { Route } from "./+types/member.correctives"
-import { WorkoutPreview } from "~/components/workout-preview"
-import { Badge } from "~/components/ui/badge"
+import { CorrectiveProtocolCard } from "~/components/corrective-protocol-card"
 import { Button } from "~/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card"
+import { Card, CardContent } from "~/components/ui/card"
 import { requireRole } from "~/lib/auth.server"
-import { workoutStyleLabels } from "~/lib/workout-builder"
-import { workoutStatusLabels } from "~/lib/workout-log-form"
 import { getAssignedCorrectivesForMember } from "../../../models/workout.server"
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -61,32 +52,13 @@ export default function MemberCorrectives() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {correctives.map((protocol) => (
-            <Card key={protocol.id}>
-              <CardHeader>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <CardTitle className="text-lg">
-                      {protocol.title ?? "Corrective protocol"}
-                    </CardTitle>
-                    <CardDescription>
-                      Peform this corrective protocol 2-3 times per week.
-                    </CardDescription>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary">
-                      {workoutStyleLabels[protocol.style]}
-                    </Badge>
-                    <Badge variant="secondary">
-                      {workoutStatusLabels[protocol.status]}
-                    </Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <WorkoutPreview workout={protocol} />
-              </CardContent>
-            </Card>
+          {correctives.map((protocol, index) => (
+            <CorrectiveProtocolCard
+              key={protocol.id}
+              protocol={protocol}
+              description="Perform this corrective protocol 2-3 times per week."
+              defaultOpen={index === 0}
+            />
           ))}
         </div>
       )}
