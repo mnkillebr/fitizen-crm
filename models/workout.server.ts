@@ -777,6 +777,42 @@ export async function getAssignedCorrectivesForClient(
   )
 }
 
+export type UnassignCorrectiveResult =
+  | { ok: true; workout: WorkoutSelect }
+  | { ok: false; reason: "not_found" }
+
+export async function unassignCorrectiveFromClient(
+  coachId: string,
+  memberId: string,
+  workoutId: string
+): Promise<UnassignCorrectiveResult> {
+  const client = await getCoachClientById(coachId, memberId)
+
+  if (!client) {
+    return { ok: false, reason: "not_found" }
+  }
+
+  const deleted = await db
+    .delete(Workout)
+    .where(
+      and(
+        eq(Workout.id, workoutId),
+        eq(Workout.coachId, coachId),
+        eq(Workout.memberId, memberId),
+        eq(Workout.style, "corrective_protocol")
+      )
+    )
+    .returning()
+
+  const workout = deleted[0]
+
+  if (!workout) {
+    return { ok: false, reason: "not_found" }
+  }
+
+  return { ok: true, workout }
+}
+
 export async function getPreviousCompletedLogForMember(
   memberId: string
 ): Promise<CompletedLogSummary | null> {
