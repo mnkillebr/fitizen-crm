@@ -2,6 +2,7 @@ import {
   CaretLeftIcon,
   CaretRightIcon,
   PersonSimpleRunIcon,
+  QuestionIcon,
 } from "@phosphor-icons/react"
 import { lazy, Suspense } from "react"
 import { Link, useSearchParams } from "react-router"
@@ -9,6 +10,7 @@ import { Link, useSearchParams } from "react-router"
 import type { StrengthTrendSlide } from "~/lib/strength-trends"
 import {
   createTrendsSearchParams,
+  getStrengthMetricHelp,
   isStrengthMetric,
   strengthMetricOptions,
   TREND_CARD_COUNT,
@@ -24,12 +26,26 @@ import {
   CardTitle,
 } from "~/components/ui/card"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "~/components/ui/dialog"
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "~/components/ui/tooltip"
 
 const TrendChart = lazy(() =>
   import("~/components/trend-chart").then((mod) => ({ default: mod.TrendChart }))
@@ -50,6 +66,9 @@ export function StrengthTrends({
 }: StrengthTrendsProps) {
   const [searchParams, setSearchParams] = useSearchParams()
   const activeSlide = slides[trendIndex] ?? slides[0]
+  const activeMetricHelp = activeSlide
+    ? getStrengthMetricHelp(activeSlide.metric)
+    : null
   const previousIndex =
     trendIndex === 0 ? TREND_CARD_COUNT - 1 : trendIndex - 1
   const nextIndex = trendIndex === TREND_CARD_COUNT - 1 ? 0 : trendIndex + 1
@@ -63,13 +82,68 @@ export function StrengthTrends({
     })
   }
 
+  const metricsHelpDialog = (
+    <Dialog>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                aria-label="About trend metrics"
+              >
+                <QuestionIcon />
+              </Button>
+            </DialogTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            How to read strength trends
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>How to read trend metrics</DialogTitle>
+          <DialogDescription>
+            Each chart tracks one metric for one exercise. Only logged sets that
+            match that metric’s prescription mode are included.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[70vh] space-y-5 overflow-y-auto pr-1">
+          {strengthMetricOptions.map((metric) => (
+            <section key={metric.value} className="space-y-2">
+              <h3 className="text-sm font-medium">{metric.label}</h3>
+              <div className="space-y-1.5 text-sm text-muted-foreground">
+                <p>{metric.meaning}</p>
+                <p>
+                  <span className="font-medium text-foreground">Calculated as:</span>{" "}
+                  {metric.formula}
+                </p>
+                <p>
+                  <span className="font-medium text-foreground">Why it matters:</span>{" "}
+                  {metric.whyItMatters}
+                </p>
+              </div>
+            </section>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+
   if (exercises.length === 0 || slides.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <PersonSimpleRunIcon className="size-5 text-primary" />
-          <CardTitle className="mt-2 text-lg">Trends</CardTitle>
-          <CardDescription>{description}</CardDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <PersonSimpleRunIcon className="size-5 text-primary" />
+              <CardTitle className="mt-2 text-lg">Trends</CardTitle>
+              <CardDescription>{description}</CardDescription>
+            </div>
+            {metricsHelpDialog}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border border-dashed p-6 text-center">
@@ -93,6 +167,7 @@ export function StrengthTrends({
             <CardDescription>{description}</CardDescription>
           </div>
           <div className="flex items-center gap-1">
+            {metricsHelpDialog}
             <Button variant="outline" size="icon-sm" asChild>
               <Link
                 to={{
@@ -130,94 +205,101 @@ export function StrengthTrends({
             className="flex transition-transform duration-300 ease-out"
             style={{ transform: `translateX(-${trendIndex * 100}%)` }}
           >
-            {slides.map((slide) => (
-              <div key={slide.index} className="w-full shrink-0 px-1">
-                <div className="rounded-lg border bg-muted/20 p-6">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap gap-2">
-                        <Select
-                          value={slide.exerciseId}
-                          onValueChange={(exerciseId) => {
-                            if (!exerciseId) return
-                            updateSearchParams({
-                              exercise: { index: slide.index, id: exerciseId },
-                              trendIndex: slide.index,
-                            })
-                          }}
-                        >
-                          <SelectTrigger size="sm" aria-label="Select exercise">
-                            <SelectValue placeholder="Exercise" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {exercises.map((exercise) => (
-                              <SelectItem key={exercise.id} value={exercise.id}>
-                                {exercise.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+            {slides.map((slide) => {
+              const metricHelp = getStrengthMetricHelp(slide.metric)
 
-                        <Select
-                          value={slide.metric}
-                          onValueChange={(metric) => {
-                            if (!isStrengthMetric(metric)) {
-                              return
-                            }
-                            updateSearchParams({
-                              metric: { index: slide.index, value: metric },
-                              trendIndex: slide.index,
-                            })
-                          }}
-                        >
-                          <SelectTrigger size="sm" aria-label="Select metric">
-                            <SelectValue placeholder="Metric" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {strengthMetricOptions.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{slide.title}</p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {slide.description}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-muted-foreground">
-                        {slide.metricLabel}
-                      </p>
-                      <p className="text-lg font-semibold">{slide.value}</p>
-                    </div>
-                  </div>
+              return (
+                <div key={slide.index} className="w-full shrink-0 px-1">
+                  <div className="rounded-lg border bg-muted/20 p-6">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap gap-2">
+                          <Select
+                            value={slide.exerciseId}
+                            onValueChange={(exerciseId) => {
+                              if (!exerciseId) return
+                              updateSearchParams({
+                                exercise: { index: slide.index, id: exerciseId },
+                                trendIndex: slide.index,
+                              })
+                            }}
+                          >
+                            <SelectTrigger size="sm" aria-label="Select exercise">
+                              <SelectValue placeholder="Exercise" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {exercises.map((exercise) => (
+                                <SelectItem key={exercise.id} value={exercise.id}>
+                                  {exercise.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
 
-                  <div className="mt-6">
-                    <Suspense
-                      fallback={
-                        <div className="flex h-40 items-center justify-center rounded-md border border-dashed bg-background/60 text-sm text-muted-foreground">
-                          Loading chart…
+                          <Select
+                            value={slide.metric}
+                            onValueChange={(metric) => {
+                              if (!isStrengthMetric(metric)) {
+                                return
+                              }
+                              updateSearchParams({
+                                metric: { index: slide.index, value: metric },
+                                trendIndex: slide.index,
+                              })
+                            }}
+                          >
+                            <SelectTrigger size="sm" aria-label="Select metric">
+                              <SelectValue placeholder="Metric" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {strengthMetricOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
-                      }
-                    >
-                      <TrendChart
-                        config={slide.chart.config}
-                        data={slide.chart.data}
-                        xAxisKey={slide.chart.xAxisKey}
-                        series={slide.chart.series}
-                        emptyMessage={slide.chart.emptyMessage}
-                        showChangePercent
-                      />
-                    </Suspense>
+                        <div>
+                          <p className="text-sm font-medium">{slide.title}</p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {slide.description}
+                          </p>
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {metricHelp.tip}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground">
+                          {slide.metricLabel}
+                        </p>
+                        <p className="text-lg font-semibold">{slide.value}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-6">
+                      <Suspense
+                        fallback={
+                          <div className="flex h-40 items-center justify-center rounded-md border border-dashed bg-background/60 text-sm text-muted-foreground">
+                            Loading chart…
+                          </div>
+                        }
+                      >
+                        <TrendChart
+                          config={slide.chart.config}
+                          data={slide.chart.data}
+                          xAxisKey={slide.chart.xAxisKey}
+                          series={slide.chart.series}
+                          emptyMessage={slide.chart.emptyMessage}
+                          showChangePercent
+                        />
+                      </Suspense>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 
@@ -246,10 +328,7 @@ export function StrengthTrends({
 
         {activeSlide ? (
           <p className="mt-4 text-center text-xs text-muted-foreground">
-            Viewing {activeSlide.title} ·{" "}
-            {strengthMetricOptions.find(
-              (option) => option.value === activeSlide.metric
-            )?.label ?? activeSlide.metric}
+            Viewing {activeSlide.title} · {activeMetricHelp?.label ?? activeSlide.metric}
           </p>
         ) : null}
       </CardContent>

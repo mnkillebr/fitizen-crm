@@ -61,55 +61,115 @@ export type StrengthTrendSlide = {
   }
 }
 
+export type StrengthMetricHelp = {
+  value: StrengthMetric
+  label: string
+  tip: string
+  meaning: string
+  formula: string
+  whyItMatters: string
+}
+
 const metricDefs: Record<
   StrengthMetric,
   {
+    label: string
     description: string
     metricLabel: string
     seriesKey: string
     chartLabel: string
     emptyMessage: string
     emptyValue: string
+    tip: string
+    meaning: string
+    formula: string
+    whyItMatters: string
     format: (value: number) => string
   }
 > = {
   volume: {
+    label: "Volume lifted",
     description: "Volume load over time",
     metricLabel: "Latest volume lifted",
     seriesKey: "volume",
     chartLabel: "Total Volume Lifted (load x sets x reps)",
     emptyMessage: "No load volume logged yet",
     emptyValue: "—",
+    tip: "Session total of reps × load for rep-based sets.",
+    meaning:
+      "How much total weight you moved in a session for an exercise logged with a rep target.",
+    formula:
+      "Sum of (reps × load) across that session’s sets. Missing or bodyweight load counts as 1.",
+    whyItMatters:
+      "Shows overall training load over time so you can see whether work is building, holding steady, or dropping.",
     format: (value) => `${Math.round(value).toLocaleString()}`,
   },
   duration: {
+    label: "Volume duration",
     description: "Volume duration over time",
     metricLabel: "Latest volume duration",
     seriesKey: "duration",
     chartLabel: "Total Volume Duration (load x sets x duration)",
     emptyMessage: "No duration volume logged yet",
     emptyValue: "—",
+    tip: "Session total of seconds × load for timed sets.",
+    meaning:
+      "How much timed or isometric work you completed in a session for exercises logged with a time target.",
+    formula:
+      "Sum of (duration in seconds × load) across that session’s sets. Missing or bodyweight load counts as 1.",
+    whyItMatters:
+      "Tracks work capacity on holds, carries, and other timed efforts that reps alone cannot capture.",
     format: (value) => `${Math.round(value).toLocaleString()}`,
   },
   work: {
+    label: "Work volume",
     description: "Work volume over time",
     metricLabel: "Latest work volume",
     seriesKey: "work",
     chartLabel: "Total Work Volume (load x sets x distance)",
     emptyMessage: "No work volume logged yet",
     emptyValue: "—",
+    tip: "Session total of distance × load for distance-based sets.",
+    meaning:
+      "How much distance-based work you completed in a session for exercises logged with a distance target.",
+    formula:
+      "Sum of (distance × load) across that session’s sets. Missing or bodyweight load counts as 1.",
+    whyItMatters:
+      "Useful for sleds, carries, sprints, and other efforts where progress is measured in yards or meters.",
     format: (value) => `${Math.round(value).toLocaleString()}`,
   },
   e1rm: {
+    label: "Est. 1RM",
     description: "Estimated maximal strength over time",
     metricLabel: "Est. 1RM",
     seriesKey: "e1rm",
     chartLabel: "Est. 1RM (lbs)",
     emptyMessage: "No estimated 1RM data yet",
     emptyValue: "— lbs",
+    tip: "Estimated max from the heaviest set in the session.",
+    meaning:
+      "An estimate of the heaviest single rep you could lift that day, based on a logged set of multiple reps.",
+    formula:
+      "Take the heaviest set in the session, then estimate 1RM from that set’s load and reps using a percent-of-max table.",
+    whyItMatters:
+      "Tracks maximal strength progress without needing a true one-rep max test every session.",
     format: (value) =>
       `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })} lbs`,
   },
+}
+
+export function getStrengthMetricHelp(
+  metric: StrengthMetric
+): StrengthMetricHelp {
+  const def = metricDefs[metric]
+  return {
+    value: metric,
+    label: def.label,
+    tip: def.tip,
+    meaning: def.meaning,
+    formula: def.formula,
+    whyItMatters: def.whyItMatters,
+  }
 }
 
 export function isStrengthMetric(value: string | null): value is StrengthMetric {
@@ -279,12 +339,9 @@ export function createTrendsSearchParams(
   return next
 }
 
-export const strengthMetricOptions: Array<{
-  value: StrengthMetric
-  label: string
-}> = [
-  { value: "volume", label: "Volume lifted" },
-  { value: "duration", label: "Volume duration" },
-  { value: "work", label: "Work volume" },
-  { value: "e1rm", label: "Est. 1RM" },
+export const strengthMetricOptions: StrengthMetricHelp[] = [
+  getStrengthMetricHelp("volume"),
+  getStrengthMetricHelp("duration"),
+  getStrengthMetricHelp("work"),
+  getStrengthMetricHelp("e1rm"),
 ]
