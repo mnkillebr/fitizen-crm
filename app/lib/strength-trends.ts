@@ -169,30 +169,43 @@ export function buildStrengthTrendSlides(
       "Exercise"
     const def = metricDefs[selection.metric]
     const logEntries = logsByExerciseId[selection.exerciseId] ?? []
-
     let rawPoints: Array<{ date: Date | string; value: number }> = []
 
     if (selection.metric === "volume") {
-      rawPoints = calculateVolumeLifted(logEntries).map((point) => ({
+      const repsEntries = logEntries.filter(
+        (entry) => entry.prescriptionMode === "reps"
+      )
+      rawPoints = calculateVolumeLifted(repsEntries).map((point) => ({
         date: point.date,
         value: point.totalVolume,
       }))
     } else if (selection.metric === "duration") {
-      rawPoints = calculateVolumeDuration(logEntries).map((point) => ({
+      const timeEntries = logEntries.filter(
+        (entry) => entry.prescriptionMode === "time"
+      )
+      rawPoints = calculateVolumeDuration(timeEntries).map((point) => ({
         date: point.date,
         value: point.totalDuration,
       }))
     } else if (selection.metric === "work") {
-      rawPoints = calculateWorkVolume(logEntries).map((point) => ({
+      const distanceEntries = logEntries.filter(
+        (entry) => entry.prescriptionMode === "distance"
+      )
+      rawPoints = calculateWorkVolume(distanceEntries).map((point) => ({
         date: point.date,
         value: point.totalWorkVolume,
       }))
     } else {
-      rawPoints = calculateEstimatedOneRepMax(logEntries).map((point) => ({
+      const repsEntries = logEntries.filter(
+        (entry) => entry.prescriptionMode === "reps"
+      )
+      rawPoints = calculateEstimatedOneRepMax(repsEntries).map((point) => ({
         date: point.date,
         value: point.estimatedOneRepMax,
       }))
     }
+
+    rawPoints = rawPoints.filter((point) => point.value !== 0)
 
     const chartRows = withChangePercent(
       rawPoints.map((point) => ({

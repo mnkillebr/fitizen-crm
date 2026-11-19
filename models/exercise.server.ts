@@ -57,6 +57,7 @@ export type ExerciseLogVolumePoint = {
   actualWeight: number | null
   roundNumber: number
   setNumber: number | null
+  prescriptionMode: "reps" | "time" | "distance" | null
 }
 
 /** System library exercises plus rows owned by this coach. */
@@ -290,6 +291,7 @@ export function getExerciseLogEntries(
       actualWeight: WorkoutLogEntry.actualWeight,
       roundNumber: WorkoutLogEntry.roundNumber,
       setNumber: WorkoutLogEntry.setNumber,
+      prescriptionMode: WorkoutLogEntry.prescriptionMode,
     })
     .from(WorkoutLogEntry)
     .innerJoin(WorkoutLog, eq(WorkoutLogEntry.workoutLogId, WorkoutLog.id))
