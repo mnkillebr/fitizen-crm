@@ -211,7 +211,10 @@ function buildInitialRows(
         maxSavedRound = Math.max(maxSavedRound, entry.roundNumber)
       }
     }
-    const rounds = Math.max(plannedRounds, maxSavedRound, 1)
+    // Logged entries are the source of truth for completed/edited sessions.
+    // Prefer saved round count so dropped rounds do not reappear from the
+    // prescription. Fall back to planned rounds only when starting a fresh log.
+    const rounds = maxSavedRound > 0 ? maxSavedRound : Math.max(plannedRounds, 1)
 
     for (let round = 1; round <= rounds; round += 1) {
       for (const exercise of block.exercises) {
@@ -234,6 +237,7 @@ function buildInitialRows(
         const prescriptionMode =
           (existing?.prescriptionMode as PrescriptionModeValue | null | undefined) ??
           exercise.prescriptionMode
+        const useLoggedValues = existing != null
 
         rows.push({
           rowKey,
@@ -274,12 +278,23 @@ function buildInitialRows(
             exercise.targetRpe,
             exercise.targetWeight
           ),
-          actualReps: existing?.actualReps ?? prescribed.actualReps,
-          actualDurationSeconds:
-            existing?.actualDurationSeconds ?? prescribed.actualDurationSeconds,
-          actualDistance: existing?.actualDistance ?? prescribed.actualDistance,
-          actualRpe: existing?.actualRpe ?? prescribed.actualRpe,
-          actualWeight: existing?.actualWeight ?? prescribed.actualWeight,
+          // When an entry was logged, keep its actuals (including nulls).
+          // Only seed from prescription for brand-new rows with no saved entry.
+          actualReps: useLoggedValues
+            ? (existing.actualReps ?? undefined)
+            : prescribed.actualReps,
+          actualDurationSeconds: useLoggedValues
+            ? (existing.actualDurationSeconds ?? undefined)
+            : prescribed.actualDurationSeconds,
+          actualDistance: useLoggedValues
+            ? (existing.actualDistance ?? undefined)
+            : prescribed.actualDistance,
+          actualRpe: useLoggedValues
+            ? (existing.actualRpe ?? undefined)
+            : prescribed.actualRpe,
+          actualWeight: useLoggedValues
+            ? (existing.actualWeight ?? undefined)
+            : prescribed.actualWeight,
           notes: existing?.notes ?? undefined,
         })
       }
