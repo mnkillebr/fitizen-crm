@@ -34,6 +34,14 @@ import {
   DialogTrigger,
 } from "~/components/ui/dialog"
 import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "~/components/ui/combobox"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -214,27 +222,45 @@ export function StrengthTrends({
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div className="space-y-3">
                         <div className="flex flex-wrap gap-2">
-                          <Select
-                            value={slide.exerciseId}
-                            onValueChange={(exerciseId) => {
-                              if (!exerciseId) return
+                          <Combobox
+                            items={exercises}
+                            value={
+                              exercises.find(
+                                (exercise) => exercise.id === slide.exerciseId
+                              ) ?? null
+                            }
+                            onValueChange={(exercise) => {
+                              if (!exercise) return
                               updateSearchParams({
-                                exercise: { index: slide.index, id: exerciseId },
+                                exercise: {
+                                  index: slide.index,
+                                  id: exercise.id,
+                                },
                                 trendIndex: slide.index,
                               })
                             }}
+                            itemToStringLabel={(exercise) => exercise.name}
+                            isItemEqualToValue={(a, b) => a.id === b.id}
                           >
-                            <SelectTrigger size="sm" aria-label="Select exercise">
-                              <SelectValue placeholder="Exercise" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {exercises.map((exercise) => (
-                                <SelectItem key={exercise.id} value={exercise.id}>
-                                  {exercise.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            <ComboboxInput
+                              placeholder="Search exercises…"
+                              aria-label="Select exercise"
+                              className="min-w-44"
+                            />
+                            <ComboboxContent>
+                              <ComboboxEmpty>No exercises found</ComboboxEmpty>
+                              <ComboboxList>
+                                {(exercise) => (
+                                  <ComboboxItem
+                                    key={exercise.id}
+                                    value={exercise}
+                                  >
+                                    {exercise.name}
+                                  </ComboboxItem>
+                                )}
+                              </ComboboxList>
+                            </ComboboxContent>
+                          </Combobox>
 
                           <Select
                             value={slide.metric}
@@ -248,7 +274,7 @@ export function StrengthTrends({
                               })
                             }}
                           >
-                            <SelectTrigger size="sm" aria-label="Select metric">
+                            <SelectTrigger aria-label="Select metric">
                               <SelectValue placeholder="Metric" />
                             </SelectTrigger>
                             <SelectContent>
