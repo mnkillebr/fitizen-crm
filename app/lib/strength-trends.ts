@@ -233,7 +233,13 @@ export function buildStrengthTrendSlides(
 
     if (selection.metric === "volume") {
       const repsEntries = logEntries.filter(
-        (entry) => entry.prescriptionMode === "reps"
+        (entry) => {
+          if (entry.prescriptionMode) {
+            return entry.prescriptionMode === "reps"
+          } else {
+            return entry.actualReps !== null && entry.actualDurationSeconds === null && entry.actualDistance === null
+          }
+        }
       )
       rawPoints = calculateVolumeLifted(repsEntries).map((point) => ({
         date: point.date,
@@ -241,7 +247,13 @@ export function buildStrengthTrendSlides(
       }))
     } else if (selection.metric === "duration") {
       const timeEntries = logEntries.filter(
-        (entry) => entry.prescriptionMode === "time"
+        (entry) => {
+          if (entry.prescriptionMode) {
+            return entry.prescriptionMode === "time"
+          } else {
+            return entry.actualDurationSeconds !== null && entry.actualReps === null && entry.actualDistance === null
+          }
+        }
       )
       rawPoints = calculateVolumeDuration(timeEntries).map((point) => ({
         date: point.date,
@@ -249,7 +261,13 @@ export function buildStrengthTrendSlides(
       }))
     } else if (selection.metric === "work") {
       const distanceEntries = logEntries.filter(
-        (entry) => entry.prescriptionMode === "distance"
+        (entry) => {
+          if (entry.prescriptionMode) {
+            return entry.prescriptionMode === "distance"
+          } else {
+            return entry.actualDistance !== null && entry.actualDurationSeconds === null && entry.actualReps === null
+          }
+        }
       )
       rawPoints = calculateWorkVolume(distanceEntries).map((point) => ({
         date: point.date,
@@ -257,8 +275,14 @@ export function buildStrengthTrendSlides(
       }))
     } else {
       const repsEntries = logEntries.filter(
-        (entry) => entry.prescriptionMode === "reps"
-      )
+          (entry) => {
+            if (entry.prescriptionMode) {
+              return entry.prescriptionMode === "reps"
+            } else {
+              return entry.actualReps !== null && entry.actualDurationSeconds === null && entry.actualDistance === null
+            }
+          }
+        )
       rawPoints = calculateEstimatedOneRepMax(repsEntries).map((point) => ({
         date: point.date,
         value: point.estimatedOneRepMax,
