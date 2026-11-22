@@ -1,6 +1,5 @@
 import {
   BarbellIcon,
-  ChatCircleIcon,
   BowlFoodIcon,
   PersonSimpleRunIcon,
   PersonSimpleTaiChiIcon,
@@ -57,11 +56,6 @@ const memberSections = [
     href: "/dashboard/member/profile",
     cta: "Edit profile",
   },
-  {
-    icon: ChatCircleIcon,
-    title: "Coach messages",
-    description: "Stay connected with your coach between sessions.",
-  },
 ] as const
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -97,44 +91,35 @@ export default function MemberDashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {memberSections.map((section) => {
           const isNutrition = section.title === "Nutrition"
-          const content = (
-            <>
-              <CardHeader>
-                <section.icon className="size-5 text-primary" />
-                <CardTitle className="text-lg">{section.title}</CardTitle>
-                <CardDescription>
-                  {isNutrition && nutritionTarget
-                    ? "Your saved daily calorie and macro targets."
-                    : section.description}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isNutrition ? (
-                  <NutritionTargetSummary target={nutritionTarget} />
-                ) : "href" in section ? (
-                  <p className="text-xs font-medium text-primary">{section.cta}</p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">Coming soon</p>
-                )}
-              </CardContent>
-            </>
+
+          return (
+            <Link
+              key={section.title}
+              to={section.href}
+              className="rounded-xl transition-colors hover:bg-muted/30"
+            >
+              <Card className="h-full transition-colors hover:border-primary/40">
+                <CardHeader>
+                  <section.icon className="size-5 text-primary" />
+                  <CardTitle className="text-lg">{section.title}</CardTitle>
+                  <CardDescription>
+                    {isNutrition && nutritionTarget
+                      ? "Your saved daily calorie and macro targets."
+                      : section.description}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isNutrition ? (
+                    <NutritionTargetSummary target={nutritionTarget} />
+                  ) : (
+                    <p className="text-xs font-medium text-primary">
+                      {section.cta}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </Link>
           )
-
-          if ("href" in section) {
-            return (
-              <Link
-                key={section.title}
-                to={section.href}
-                className="rounded-xl transition-colors hover:bg-muted/30"
-              >
-                <Card className="h-full transition-colors hover:border-primary/40">
-                  {content}
-                </Card>
-              </Link>
-            )
-          }
-
-          return <Card key={section.title}>{content}</Card>
         })}
       </div>
     </div>
