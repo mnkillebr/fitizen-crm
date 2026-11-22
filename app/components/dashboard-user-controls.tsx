@@ -63,10 +63,10 @@ export function DashboardUserControls({
     <div className={cn("flex items-center gap-2", className)}>
       {avatar}
       <div className={cn("min-w-0 flex-1", compact && "max-w-28")}>
-        <p className="truncate text-sm font-medium leading-tight">
+        <p className="hidden sm:block truncate text-sm font-medium leading-tight">
           {user.firstName} {user.lastName}
         </p>
-        <p className="truncate text-xs leading-tight text-muted-foreground">
+        <p className="hidden sm:block truncate text-xs leading-tight text-muted-foreground">
           {user.email}
         </p>
         <Badge variant="secondary" className="mt-1">

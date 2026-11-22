@@ -58,7 +58,7 @@ const memberNavItems: DashboardNavItem[] = [
       pathname.startsWith("/dashboard/member/workout-log"),
   },
   {
-    title: "Corrective Protocol",
+    title: "Correctives",
     to: "/dashboard/member/correctives",
     icon: PersonSimpleTaiChiIcon,
     isActive: (pathname) => pathname.startsWith("/dashboard/member/correctives"),
@@ -70,7 +70,7 @@ const memberNavItems: DashboardNavItem[] = [
     isActive: (pathname) => pathname.startsWith("/dashboard/member/nutrition"),
   },
   {
-    title: "Body Composition",
+    title: "Body Comp",
     to: "/dashboard/member/composition",
     icon: PersonSimpleRunIcon,
     isActive: (pathname) => pathname.startsWith("/dashboard/member/composition"),
