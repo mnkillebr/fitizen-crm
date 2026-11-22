@@ -9,6 +9,7 @@ import {
 
 import type { Route } from "./+types/root"
 import { themeInitScript } from "~/lib/theme"
+import { TooltipProvider } from "~/components/ui/tooltip"
 import "./app.css"
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -16,13 +17,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, viewport-fit=cover"
+        />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <Meta />
         <Links />
       </head>
       <body>
-        {children}
+        <TooltipProvider>{children}</TooltipProvider>
         <ScrollRestoration />
         <Scripts />
       </body>
